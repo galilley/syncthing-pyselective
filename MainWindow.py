@@ -15,7 +15,7 @@ from TreeModel import TreeModel
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
-        self.setMinimumSize(QtCore.QSize(240, 320))
+        self.setMinimumSize(QtCore.QSize(350, 350))
         self.setWindowTitle("Hello world!!!")
         central_widget = QtWidgets.QWidget(self)
         self.cw = central_widget

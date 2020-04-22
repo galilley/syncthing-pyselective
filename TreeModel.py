@@ -15,6 +15,7 @@ class TreeItem:
         self._parentItem = parent
         self._itemData = data
         self._childItems = []
+        self.checkstate = QtCore.Qt.Unchecked
     
     def appendChild(self, child):
         if isinstance(child, TreeItem):
@@ -38,6 +39,13 @@ class TreeItem:
             return None
         return self._itemData[column]
     
+    def setData(self, column, value):
+        if column < -len(self._itemData) or column >= len(self._itemData):
+            return False
+        self._itemData[column] = value
+        print(type(value), value)
+        return True
+    
     def row(self):
         if self._parentItem is not None:
             return self._parentItem._childItems.index(self)
@@ -51,8 +59,16 @@ class TreeItem:
 class TreeModel(QtCore.QAbstractItemModel):
     def __init__(self, data = [], parent = None):
         QtCore.QAbstractItemModel.__init__(self, parent)
-        self._rootItem = TreeItem(['Title', 'Size', 'Modified', 'Synced'])
+        self._rootItem = TreeItem(['Title', 'Size', 'Modified'])
         self._setupModelData(data, self._rootItem)
+
+    def getItem(self, index):
+        if index.isValid():
+            item = index.internalPointer()
+            if item is not None:
+                return item
+
+        return self.rootItem
 
     def data(self, index, role):
         if not isinstance(index, QtCore.QModelIndex):
@@ -60,11 +76,27 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not index.isValid():
             return None
 
+        item = index.internalPointer()
+        
+        if role == QtCore.Qt.CheckStateRole and index.column() == 0:
+            return item.checkstate
+
         if role != QtCore.Qt.DisplayRole:
             return None
         
-        item = index.internalPointer()
         return item.data(index.column())
+    
+    def setData(self, index, value, role = QtCore.Qt.EditRole):
+        if index.column() == 0:
+            if role == QtCore.Qt.CheckStateRole:
+                self.getItem(index).checkstate = value
+                print(value)
+                self.dataChanged.emit(index, index)
+                return True
+            else:
+                return False
+
+        return super().setData(index, value, role)
     
     def flags(self, index):
         if not isinstance(index, QtCore.QModelIndex):
@@ -72,7 +104,11 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
 
-        return super().flags(index)
+        rv = super().flags(index)
+        if index.column() == 0:
+            rv |= QtCore.Qt.ItemIsUserCheckable
+            #rv |= QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsUserCheckable
+        return rv
 
     def headerData(self, section, orientation, role = QtCore.Qt.DisplayRole):
         if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
@@ -88,7 +124,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not parent.isValid():
              parentItem = self._rootItem
         else:
-             parentItem = parent.internalPointer()
+             parentItem = self.getItem(parent)
 
         childItem = parentItem.child(row)
         if childItem is not None:
@@ -101,8 +137,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not index.isValid():
             return QtCore.QModelIndex();
 
-        childItem = index.internalPointer()
-        parentItem = childItem.parentItem()
+        parentItem = self.getItem(index).parentItem()
 
         if parentItem is self._rootItem:
             return QtCore.QModelIndex()
@@ -118,7 +153,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not parent.isValid():
              parentItem = self._rootItem
         else:
-             parentItem = parent.internalPointer()
+             parentItem = self.getItem(parent)
 
         return parentItem.childCount()
 
@@ -126,8 +161,9 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not isinstance(parent, QtCore.QModelIndex):
             raise TypeError('Parent\'s type is {0}, but must be QModelIndex'.format(str(type(parent))))
         if parent.isValid():
-            return parent.internalPointer().columnCount()
+            return self.getItem(parent).columnCount()
         return self._rootItem.columnCount()
+
     
     def _setupModelData(self, data, parent = None):
         if parent is None:
@@ -142,8 +178,9 @@ class TreeModel(QtCore.QAbstractItemModel):
                     v['name'], 
                     v['size'] if 'size' in v else None, 
                     QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
-                    not v['ignored'] if 'ignored' in v else None, 
                 ], parent)
+            ignored = v['ignored'] if 'ignored' in v else True
+            ch.checkstate = QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked
             parent.appendChild(ch)
 
             if v['isfolder']:
@@ -166,7 +203,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not isinstance(index, QtCore.QModelIndex):
             raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
         rv = []
-        for ch in index.internalPointer()._childItems:
+        for ch in self.getItem(index)._childItems:
             rv.append({'name': ch._itemData[0]})
         return rv
 
@@ -176,15 +213,16 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
-        for ch in index.internalPointer()._childItems:
+        for ch in self.getItem(index)._childItems:
             for v in data: #TODO shold be dict of dicts to avoid second for
                 if ch.data(0) == v['name']:
                     ch._itemData = [
                             v['name'], 
                             v['size'] if 'size' in v else None, 
                             QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
-                            not v['ignored'] if 'ignored' in v else None, 
                         ]
+                    ignored = v['ignored'] if 'ignored' in v else True
+                    ch.checkstate = QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked
         
         indfirst = self.index(0, 0, index)
         indlast = self.index(self.rowCount(index), self.columnCount(index), index)
