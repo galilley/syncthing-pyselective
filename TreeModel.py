@@ -23,18 +23,18 @@ class TreeItem:
             raise TypeError('Child\'s type is {0}, but must be TreeItem'.format(str(type(child))))
 
     def child(self, row):
-        if row < 0 or row >= len(self._childItems):
+        if row < -len(self._childItems) or row >= len(self._childItems):
             return None
         return self._childItems[row]
 
     def childCount(self):
         return len(self._childItems)
-
+    
     def columnCount(self):
         return len(self._itemData)
 
     def data(self, column):
-        if column < 0 or column >= len(self._itemData):
+        if column < -len(self._itemData) or column >= len(self._itemData):
             return None
         return self._itemData[column]
     
@@ -49,10 +49,10 @@ class TreeItem:
 
 
 class TreeModel(QtCore.QAbstractItemModel):
-    def __init__(self, data = [], parent = None):
+    def __init__(self, data = {}, parent = None):
         QtCore.QAbstractItemModel.__init__(self, parent)
-        self._rootItem = TreeItem(['Title', 'Summary'])
-        self.setupModelData(data, self._rootItem)
+        self._rootItem = TreeItem(['Title', 'Summary', 'Size'])
+        self._setupModelData(data, self._rootItem)
 
     def data(self, index, role):
         if not isinstance(index, QtCore.QModelIndex):
@@ -129,10 +129,23 @@ class TreeModel(QtCore.QAbstractItemModel):
             return parent.internalPointer().columnCount()
         return self._rootItem.columnCount()
     
-    def setupModelData(self, data, parent):
-        parent.appendChild(TreeItem([1,2], parent))
-        parent.child(0).appendChild(TreeItem([3,4], parent.child(0)))
-        pass
+    def _setupModelData(self, data, parent = None):
+        if parent is None:
+            parent = self._rootItem
+        if not isinstance(parent, TreeItem):
+            raise TypeError('Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent))))
+        if not isinstance(data, dict):
+            raise TypeError('data\'s type is {0}, but must be dict'.format(str(type(data))))
+        
+        for key in data:
+            if isinstance(data[key], dict):
+                ch = TreeItem([key, None, None], parent)
+                parent.appendChild(ch)
+                self._setupModelData(data[key], ch)
+            elif isinstance(data[key], list):
+                parent.appendChild(TreeItem([key] + data[key], parent))
+            else:
+                raise TypeError('Unsupported data type {0}'.format(str(type(data))))
 
 
 

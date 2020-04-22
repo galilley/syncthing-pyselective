@@ -18,6 +18,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMinimumSize(QtCore.QSize(240, 320))
         self.setWindowTitle("Hello world!!!")
         central_widget = QtWidgets.QWidget(self)
+        self.cw = central_widget
         self.setCentralWidget(central_widget)
  
         grid_layout = QtWidgets.QGridLayout(central_widget)
@@ -32,8 +33,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tv = QtWidgets.QTreeView(central_widget)
         grid_layout.addWidget( self.tv, 2, 0)
-        self.tm = TreeModel(central_widget)
+        self.tm = TreeModel(parent = central_widget)
         self.tv.setModel(self.tm)
+        self.tv.header().setSectionsMovable(True)
+        self.tv.header().setFirstSectionMovable(True)
         #TODO
         #self.tv.setSelectionModel(self.tsm)
 
@@ -63,8 +66,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if index < 0: #avoid signal from empty box
             return
         print(self.syncapi.getIgnoreList( self.cbfolder.itemData(index)))
-        print(self.syncapi.browseFolder( self.cbfolder.itemData(index)))
-        print(self.foldsdict[self.cbfolder.itemData(index)]['path'])
+        d = self.syncapi.browseFolder( self.cbfolder.itemData(index))
+        for key in d:
+            print(key, '->', d[key])
+        self.tm = TreeModel(d, self.cw)
+        self.tv.setModel(self.tm)
+
+        print('-------')
+        for key in self.foldsdict[self.cbfolder.itemData(index)]:
+            print(key, '->', self.foldsdict[self.cbfolder.itemData(index)][key])
         for i in self.syncapi.getIgnoreList( self.cbfolder.itemData(index)):
             self.te.append(i)
         self.te.append('------')
