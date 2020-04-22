@@ -1,0 +1,7 @@
+PySel=~/Programming/lab17/syncthing-pyselective CD=. filter="*.py" {
+ FileSystem.py
+ MainWindow.py
+ SyncthingAPI.py
+ TreeModel.py
+ main.py
+}
