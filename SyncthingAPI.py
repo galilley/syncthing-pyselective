@@ -23,6 +23,19 @@ class SyncthingAPI:
         else:
             raise requests.RequestException('Wrong status code: '+ str(response.status_code))
 
+    def _refineBrowseFolderRequest(self, d, rv = None):
+        # to avoid copying
+        if rv is None:
+            rv = []
+        # refine dict with list to list of dicts
+        for key in d:
+            if isinstance(d[key], dict):
+                rv.append({ 'name' : key, 'isfolder': True, 'content': [] })
+                self._refineBrowseFolderRequest(d[key], rv[-1]['content'])
+            else:
+                rv.append({ 'name' : key, 'isfolder': False})
+        return rv
+
     def getFolderIter(self):
         return self._getRequest('stats/folder').keys()
     
@@ -43,11 +56,13 @@ class SyncthingAPI:
         return rv
 
     def browseFolder(self, fid):
-        rv = self._getRequest('db/browse?folder={0}'.format(fid))
-        return rv
+        d = self._getRequest('db/browse?folder={0}'.format(fid))
+        print(d)
+        return self._refineBrowseFolderRequest(d)
 
     def getFileInfoExtended(self, fid, fn):
         'fn: file name with path relative to the parent folder'
-        rv = self._getRequest('db/file?folder={0}?file={}'.format(fid,fn))
+        rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid,fn))
+        return rv
 
 

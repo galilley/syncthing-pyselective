@@ -49,9 +49,9 @@ class TreeItem:
 
 
 class TreeModel(QtCore.QAbstractItemModel):
-    def __init__(self, data = {}, parent = None):
+    def __init__(self, data = [], parent = None):
         QtCore.QAbstractItemModel.__init__(self, parent)
-        self._rootItem = TreeItem(['Title', 'Summary', 'Size'])
+        self._rootItem = TreeItem(['Title', 'Size', 'Modified', 'Synced'])
         self._setupModelData(data, self._rootItem)
 
     def data(self, index, role):
@@ -134,18 +134,66 @@ class TreeModel(QtCore.QAbstractItemModel):
             parent = self._rootItem
         if not isinstance(parent, TreeItem):
             raise TypeError('Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent))))
-        if not isinstance(data, dict):
-            raise TypeError('data\'s type is {0}, but must be dict'.format(str(type(data))))
+        if not isinstance(data, list):
+            raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
-        for key in data:
-            if isinstance(data[key], dict):
-                ch = TreeItem([key, None, None], parent)
-                parent.appendChild(ch)
-                self._setupModelData(data[key], ch)
-            elif isinstance(data[key], list):
-                parent.appendChild(TreeItem([key] + data[key], parent))
-            else:
-                raise TypeError('Unsupported data type {0}'.format(str(type(data))))
+        for v in data:
+            ch = TreeItem([
+                    v['name'], 
+                    v['size'] if 'size' in v else None, 
+                    QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
+                    not v['ignored'] if 'ignored' in v else None, 
+                ], parent)
+            parent.appendChild(ch)
 
+            if v['isfolder']:
+                self._setupModelData(v['content'], ch)
+    
+    def fullItemName(self, index):
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+        fin = ''
+        while index.isValid():
+            fin = self.itemData(index)[0] + '/' + fin
+            pi = self.parent(index)
+            if not pi.isValid():
+                break;
+            index = pi
+
+        return fin
+
+    def rowNamesList(self, index):
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+        rv = []
+        for ch in index.internalPointer()._childItems:
+            rv.append({'name': ch._itemData[0]})
+        return rv
+
+    def updateSubSection(self, index, data):
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+        if not isinstance(data, list):
+            raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
+        
+        for ch in index.internalPointer()._childItems:
+            for v in data: #TODO shold be dict of dicts to avoid second for
+                if ch.data(0) == v['name']:
+                    ch._itemData = [
+                            v['name'], 
+                            v['size'] if 'size' in v else None, 
+                            QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
+                            not v['ignored'] if 'ignored' in v else None, 
+                        ]
+        
+        indfirst = self.index(0, 0, index)
+        indlast = self.index(self.rowCount(index), self.columnCount(index), index)
+        super().dataChanged.emit(indfirst, indlast, [QtCore.Qt.DisplayRole])
+
+
+
+
+
+    
 
 

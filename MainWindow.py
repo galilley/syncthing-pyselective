@@ -37,6 +37,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
         self.tv.header().setFirstSectionMovable(True)
+        self.tv.expanded.connect(self.updateSectionInfo)
         #TODO
         #self.tv.setSelectionModel(self.tsm)
 
@@ -55,6 +56,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.syncapi = SyncthingAPI()
 
+    def extendFileInfo(self, fid, l, path = ''):
+        for v in l:
+            extd = self.syncapi.getFileInfoExtended( fid, path+v['name'])
+            v['ignored'] = extd['local']['ignored']
+            v['modified'] = extd['local']['modified']
+            v['size'] = extd['local']['size']
+
     def buttonClicked(self):
         d = self.syncapi.getFoldersDict()
         self.foldsdict = d
@@ -65,11 +73,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def folderSelected(self, index):
         if index < 0: #avoid signal from empty box
             return
-        print(self.syncapi.getIgnoreList( self.cbfolder.itemData(index)))
-        d = self.syncapi.browseFolder( self.cbfolder.itemData(index))
-        for key in d:
-            print(key, '->', d[key])
-        self.tm = TreeModel(d, self.cw)
+
+        fid = self.cbfolder.itemData(index)
+        self.currentfid = fid
+        l = self.syncapi.browseFolder(fid)
+        self.extendFileInfo(fid, l)
+        self.tm = TreeModel(l, self.cw)
         self.tv.setModel(self.tm)
 
         print('-------')
@@ -79,4 +88,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.te.append(i)
         self.te.append('------')
         pass
+
+    def updateSectionInfo(self, index):
+        l = self.tm.rowNamesList(index)
+        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(index))
+        self.tm.updateSubSection(index, l)
+
 
