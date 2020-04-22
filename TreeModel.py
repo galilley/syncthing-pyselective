@@ -8,72 +8,131 @@ except:
     from PyQt5 import QtCore
     from PyQt5 import QtWidgets
 
-class TreeItem:
-    def __init__(self):
-        #QList<TreeItem*> m_childItems;
-        #QList<QVariant> m_itemData;
-        #TreeItem *m_parentItem;
-        self._childItems = []
-        self._itemData = []
-        self._parentItem = None
+# https://doc.qt.io/qt-5/qtwidgets-itemviews-simpletreemodel-example.html
 
+class TreeItem:
+    def __init__(self, data = [], parent = None):
+        self._parentItem = parent
+        self._itemData = data
+        self._childItems = []
+    
     def appendChild(self, child):
-    #def appendChild(TreeItem *child):
-        pass
+        if isinstance(child, TreeItem):
+            self._childItems.append(child)
+        else:
+            raise TypeError('Child\'s type is {0}, but must be TreeItem'.format(str(type(child))))
 
     def child(self, row):
-    #def TreeItem *child(int row):
-        pass
+        if row < 0 or row >= len(self._childItems):
+            return None
+        return self._childItems[row]
 
     def childCount(self):
-        return 0
+        return len(self._childItems)
 
     def columnCount(self):
-        return 0
+        return len(self._itemData)
 
     def data(self, column):
-        pass
-    #QVariant data(int column) const;
+        if column < 0 or column >= len(self._itemData):
+            return None
+        return self._itemData[column]
     
     def row(self):
+        if self._parentItem is not None:
+            return self._parentItem._childItems.index(self)
         return 0
     
     def parentItem(self):
-        pass
-    #TreeItem *parentItem();
+        return self._parentItem
+
 
 
 class TreeModel(QtCore.QAbstractItemModel):
-    def __init__(self, parent = None):
+    def __init__(self, data = [], parent = None):
         QtCore.QAbstractItemModel.__init__(self, parent)
-        self.rootItem = TreeItem()
+        self._rootItem = TreeItem(['Title', 'Summary'])
+        self.setupModelData(data, self._rootItem)
 
-    #QVariant data(const QModelIndex &index, int role) const override;
     def data(self, index, role):
-        return None
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+        if not index.isValid():
+            return None
+
+        if role != QtCore.Qt.DisplayRole:
+            return None
+        
+        item = index.internalPointer()
+        return item.data(index.column())
     
-    #Qt::ItemFlags flags(const QModelIndex &index) const override;
     def flags(self, index):
-        pass
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+        if not index.isValid():
+            return QtCore.Qt.NoItemFlags
 
-    #QVariant headerData(int section, Qt::Orientation orientation,
-    #                    int role = Qt::DisplayRole) const override;
+        return super().flags(index)
+
     def headerData(self, section, orientation, role = QtCore.Qt.DisplayRole):
-        pass
+        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+            return self._rootItem.data(section);
+        return None
     
-    #QModelIndex index(int row, int column,
-    #                  const QModelIndex &parent = QModelIndex()) const override;
     def index(self, row, column, parent = QtCore.QModelIndex()):
-        return None
+        if not isinstance(parent, QtCore.QModelIndex):
+            raise TypeError('Parent\'s type is {0}, but must be QModelIndex'.format(str(type(parent))))
+        if not self.hasIndex(row, column, parent):
+            return QtCore.QModelIndex()
 
-    #QModelIndex parent(const QModelIndex &index) const override;
+        if not parent.isValid():
+             parentItem = self._rootItem
+        else:
+             parentItem = parent.internalPointer()
+
+        childItem = parentItem.child(row)
+        if childItem is not None:
+            return self.createIndex(row, column, childItem);
+        return QtCore.QModelIndex();
+
     def parent(self, index):
-        return None
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+        if not index.isValid():
+            return QtCore.QModelIndex();
+
+        childItem = index.internalPointer()
+        parentItem = childItem.parentItem()
+
+        if parentItem is self._rootItem:
+            return QtCore.QModelIndex()
+
+        return self.createIndex(parentItem.row(), 0, parentItem)
     
     def rowCount(self, parent = QtCore.QModelIndex()):
-        return 0
+        if not isinstance(parent, QtCore.QModelIndex):
+            raise TypeError('Parent\'s type is {0}, but must be QModelIndex'.format(str(type(parent))))
+        if parent.column() > 0:
+            return 0;
+        
+        if not parent.isValid():
+             parentItem = self._rootItem
+        else:
+             parentItem = parent.internalPointer()
+
+        return parentItem.childCount()
 
     def columnCount(self, parent = QtCore.QModelIndex()):
-        return 0
+        if not isinstance(parent, QtCore.QModelIndex):
+            raise TypeError('Parent\'s type is {0}, but must be QModelIndex'.format(str(type(parent))))
+        if parent.isValid():
+            return parent.internalPointer().columnCount()
+        return self._rootItem.columnCount()
+    
+    def setupModelData(self, data, parent):
+        parent.appendChild(TreeItem([1,2], parent))
+        parent.child(0).appendChild(TreeItem([3,4], parent.child(0)))
+        pass
+
 
 
