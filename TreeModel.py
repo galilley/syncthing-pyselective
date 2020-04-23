@@ -43,7 +43,6 @@ class TreeItem:
         if column < -len(self._itemData) or column >= len(self._itemData):
             return False
         self._itemData[column] = value
-        print(type(value), value)
         return True
     
     def row(self):
@@ -90,7 +89,6 @@ class TreeModel(QtCore.QAbstractItemModel):
         if index.column() == 0:
             if role == QtCore.Qt.CheckStateRole:
                 self.getItem(index).checkstate = value
-                print(value)
                 self.dataChanged.emit(index, index)
                 return True
             else:
@@ -107,7 +105,6 @@ class TreeModel(QtCore.QAbstractItemModel):
         rv = super().flags(index)
         if index.column() == 0:
             rv |= QtCore.Qt.ItemIsUserCheckable
-            #rv |= QtCore.Qt.ItemIsEditable | QtCore.Qt.ItemIsUserCheckable
         return rv
 
     def headerData(self, section, orientation, role = QtCore.Qt.DisplayRole):
@@ -174,6 +171,8 @@ class TreeModel(QtCore.QAbstractItemModel):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
         for v in data:
+            if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
+                continue
             ch = TreeItem([
                     v['name'], 
                     v['size'] if 'size' in v else None, 
@@ -227,11 +226,21 @@ class TreeModel(QtCore.QAbstractItemModel):
         indfirst = self.index(0, 0, index)
         indlast = self.index(self.rowCount(index), self.columnCount(index), index)
         super().dataChanged.emit(indfirst, indlast, [QtCore.Qt.DisplayRole])
+        
+    def checkedPathList(self, plist = None, parent = None, pref = '/'):
+        if plist is None:
+            plist = []
+        if parent is None:
+            parent = self._rootItem
+        for item in parent._childItems:
+            if pref == '/' and item.data(0) == '.stignoreglobal': #additional ignore list may be needed
+                continue
+            if item.checkstate == QtCore.Qt.Checked:
+                plist.append(pref + item.data(0))
+            else:
+                if item.childCount() > 0:
+                    self.checkedPathList(plist, item, pref + item.data(0) + '/')
+        return plist
 
-
-
-
-
-    
 
 

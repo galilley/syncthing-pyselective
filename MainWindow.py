@@ -16,14 +16,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
         self.setMinimumSize(QtCore.QSize(350, 350))
-        self.setWindowTitle("Hello world!!!")
+        self.setWindowTitle("Syncthing PySelective")
         central_widget = QtWidgets.QWidget(self)
         self.cw = central_widget
         self.setCentralWidget(central_widget)
  
         grid_layout = QtWidgets.QGridLayout(central_widget)
  
-        title = QtWidgets.QLabel("Hello World on the PyQt5", self)
+        title = QtWidgets.QLabel("Choise the folder:", self)
         title.setAlignment(QtCore.Qt.AlignCenter)
         grid_layout.addWidget(title, 0, 0)
 
@@ -41,12 +41,16 @@ class MainWindow(QtWidgets.QMainWindow):
         #TODO
         #self.tv.setSelectionModel(self.tsm)
 
-        pb = QtWidgets.QPushButton("Update file tree", central_widget)
-        pb.clicked.connect(self.buttonClicked)
+        pb = QtWidgets.QPushButton("Get file tree", central_widget)
+        pb.clicked.connect(self.btGetClicked)
         grid_layout.addWidget( pb, 3, 0)
         
-        self.te = QtWidgets.QTextEdit(central_widget)
-        grid_layout.addWidget( self.te, 4, 0)
+        pb = QtWidgets.QPushButton("Submit changes", central_widget)
+        pb.clicked.connect(self.btSubmitClicked)
+        grid_layout.addWidget( pb, 4, 0)
+        
+        #self.te = QtWidgets.QTextEdit(central_widget)
+        #grid_layout.addWidget( self.te, 5, 0)
  
         exit_action = QtWidgets.QAction("&Exit", self)
         exit_action.setShortcut('Ctrl+Q')
@@ -55,6 +59,7 @@ class MainWindow(QtWidgets.QMainWindow):
         file_menu.addAction(exit_action)
 
         self.syncapi = SyncthingAPI()
+        self.currentfid = None
 
     def extendFileInfo(self, fid, l, path = ''):
         for v in l:
@@ -63,12 +68,17 @@ class MainWindow(QtWidgets.QMainWindow):
             v['modified'] = extd['local']['modified']
             v['size'] = extd['local']['size']
 
-    def buttonClicked(self):
+    def btGetClicked(self):
         d = self.syncapi.getFoldersDict()
         self.foldsdict = d
         self.cbfolder.clear()
         for k in d.keys():
             self.cbfolder.addItem(d[k]['label'], k)
+
+    def btSubmitClicked(self):
+        if self.currentfid is not None:
+            il = self.tm.checkedPathList()
+            self.syncapi.setIgnoreSelective(self.currentfid, il)
 
     def folderSelected(self, index):
         if index < 0: #avoid signal from empty box
@@ -80,14 +90,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extendFileInfo(fid, l)
         self.tm = TreeModel(l, self.cw)
         self.tv.setModel(self.tm)
-
-        print('-------')
-        for key in self.foldsdict[self.cbfolder.itemData(index)]:
-            print(key, '->', self.foldsdict[self.cbfolder.itemData(index)][key])
-        for i in self.syncapi.getIgnoreList( self.cbfolder.itemData(index)):
-            self.te.append(i)
-        self.te.append('------')
-        pass
 
     def updateSectionInfo(self, index):
         l = self.tm.rowNamesList(index)
