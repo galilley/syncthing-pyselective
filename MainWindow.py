@@ -15,7 +15,7 @@ from TreeModel import TreeModel
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
-        self.setMinimumSize(QtCore.QSize(350, 350))
+        self.setMinimumSize(QtCore.QSize(150, 250))
         self.setWindowTitle("Syncthing PySelective")
         central_widget = QtWidgets.QWidget(self)
         self.cw = central_widget
@@ -25,14 +25,14 @@ class MainWindow(QtWidgets.QMainWindow):
  
         title = QtWidgets.QLabel("Choise the folder:", self)
         title.setAlignment(QtCore.Qt.AlignCenter)
-        grid_layout.addWidget(title, 0, 0)
+        grid_layout.addWidget(title, 0, 0, 1, 2)
 
         self.cbfolder = QtWidgets.QComboBox(central_widget)
         self.cbfolder.currentIndexChanged[int].connect(self.folderSelected)
-        grid_layout.addWidget( self.cbfolder, 1, 0)
+        grid_layout.addWidget( self.cbfolder, 1, 0, 1, 2)
 
         self.tv = QtWidgets.QTreeView(central_widget)
-        grid_layout.addWidget( self.tv, 2, 0)
+        grid_layout.addWidget( self.tv, 2, 0, 1, 2)
         self.tm = TreeModel(parent = central_widget)
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
@@ -43,23 +43,37 @@ class MainWindow(QtWidgets.QMainWindow):
 
         pb = QtWidgets.QPushButton("Get file tree", central_widget)
         pb.clicked.connect(self.btGetClicked)
-        grid_layout.addWidget( pb, 3, 0)
+        grid_layout.addWidget( pb, 3, 0, 1, 2)
         
         pb = QtWidgets.QPushButton("Submit changes", central_widget)
         pb.clicked.connect(self.btSubmitClicked)
-        grid_layout.addWidget( pb, 4, 0)
+        grid_layout.addWidget( pb, 4, 0, 1, 2)
+        
+        lapi = QtWidgets.QLabel("API Key:", self)
+        grid_layout.addWidget(lapi, 5, 0, 1, 1)
+        self.leKey = QtWidgets.QLineEdit(central_widget)
+        self.leKey.editingFinished.connect(self.leSaveKeyAPI)
+        self.leKey.inputRejected.connect(self.leRestoreKeyAPI)
+        grid_layout.addWidget( self.leKey, 5, 1, 1, 1)
         
         #self.te = QtWidgets.QTextEdit(central_widget)
         #grid_layout.addWidget( self.te, 5, 0)
  
-        exit_action = QtWidgets.QAction("&Exit", self)
-        exit_action.setShortcut('Ctrl+Q')
-        exit_action.triggered.connect(QtWidgets.qApp.quit)
-        file_menu = self.menuBar()
-        file_menu.addAction(exit_action)
+        #exit_action = QtWidgets.QAction("&Exit", self)
+        #exit_action.setShortcut('Ctrl+Q')
+        #exit_action.triggered.connect(QtWidgets.qApp.quit)
+        #file_menu = self.menuBar()
+        #file_menu.addAction(exit_action)
 
-        self.syncapi = SyncthingAPI()
         self.currentfid = None
+        self.syncapi = SyncthingAPI()
+
+        self.readSettings()
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("Syncthing");
+        self.leKey.setText( settings.value("apikey", "None"))
+        settings.endGroup();
+        self.syncapi.api_token = self.leKey.text()
 
     def extendFileInfo(self, fid, l, path = ''):
         for v in l:
@@ -80,6 +94,37 @@ class MainWindow(QtWidgets.QMainWindow):
             il = self.tm.checkedPathList()
             self.syncapi.setIgnoreSelective(self.currentfid, il)
 
+    def writeSettings(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("MainWindow");
+        settings.setValue("size", self.size());
+        settings.setValue("pos", self.pos());
+        settings.endGroup();
+
+    def readSettings(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("MainWindow");
+        self.resize(settings.value("size", QtCore.QSize(350, 350)));
+        self.move(settings.value("pos", QtCore.QPoint(200, 200)));
+        settings.endGroup();
+
+    def leSaveKeyAPI(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("Syncthing");
+        settings.setValue("apikey", self.leKey.text());
+        settings.endGroup();
+        self.syncapi.api_token = self.leKey.text()
+    
+    def leRestoreKeyAPI(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("Syncthing");
+        self.leKey.setText( settings.value("apikey", "None"))
+        settings.endGroup();
+
+    def closeEvent(self, event):
+        self.writeSettings()
+        event.accept()
+
     def folderSelected(self, index):
         if index < 0: #avoid signal from empty box
             return
@@ -90,6 +135,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extendFileInfo(fid, l)
         self.tm = TreeModel(l, self.cw)
         self.tv.setModel(self.tm)
+        self.tv.resizeColumnToContents(0)
 
     def updateSectionInfo(self, index):
         l = self.tm.rowNamesList(index)
