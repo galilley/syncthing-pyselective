@@ -78,9 +78,27 @@ class MainWindow(QtWidgets.QMainWindow):
     def extendFileInfo(self, fid, l, path = ''):
         for v in l:
             extd = self.syncapi.getFileInfoExtended( fid, path+v['name'])
-            v['ignored'] = extd['local']['ignored']
-            v['modified'] = extd['local']['modified']
-            v['size'] = extd['local']['size']
+            if not v['isfolder']:
+                v['ignored'] = extd['local']['ignored']
+                v['invalid'] = extd['local']['invalid']
+                v['modified'] = extd['local']['modified']
+                v['size'] = extd['local']['size']
+            else: #do not believe 'ignore', check content
+                selcnt = 0
+                for v2 in v['content']:
+                    if self.syncapi.getFileInfoExtended( \
+                            fid, path+v['name']+'/' + v2['name'])['local']['ignored'] == False:
+                        selcnt += 1
+
+                if selcnt == len(v['content']):
+                    v['ignored'] = False
+                    v['partial'] = False
+                elif selcnt == 0:
+                    v['ignored'] = True
+                    v['partial'] = False
+                else:
+                    v['ignored'] = False
+                    v['partial'] = True
 
     def btGetClicked(self):
         d = self.syncapi.getFoldersDict()

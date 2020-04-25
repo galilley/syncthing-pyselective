@@ -15,11 +15,17 @@ class TreeItem:
         self._parentItem = parent
         self._itemData = data
         self._childItems = []
-        self.checkstate = QtCore.Qt.Unchecked
+        self._checkedItemsCount = 0
+        self._checkedPartiallyCount = 0
+        self._checkstate = QtCore.Qt.Unchecked
     
     def appendChild(self, child):
         if isinstance(child, TreeItem):
             self._childItems.append(child)
+            if child.getCheckState() == QtCore.Qt.Checked:
+                self._checkedItemsCount += 1
+            if child.getCheckState() == QtCore.Qt.PartiallyChecked:
+                self._checkedPartiallyCount += 1
         else:
             raise TypeError('Child\'s type is {0}, but must be TreeItem'.format(str(type(child))))
 
@@ -30,6 +36,12 @@ class TreeItem:
 
     def childCount(self):
         return len(self._childItems)
+    
+    def childNames(self):
+        rv = []
+        for ch in self._childItems:
+            rv.append(ch._itemData[0])
+        return rv
     
     def columnCount(self):
         return len(self._itemData)
@@ -44,6 +56,47 @@ class TreeItem:
             return False
         self._itemData[column] = value
         return True
+
+    def setCheckState(self, st):
+        if st != self._checkstate and \
+                self._parentItem is not None and \
+                self in self._parentItem._childItems:
+            if st == QtCore.Qt.Checked:
+                self._parentItem._checkedItemsCount += 1
+                if self._checkstate == QtCore.Qt.PartiallyChecked:
+                    self._parentItem._checkedPartiallyCount -= 1
+            elif st == QtCore.Qt.PartiallyChecked:
+                self._parentItem._checkedPartiallyCount += 1
+                if self._checkstate == QtCore.Qt.Checked:
+                    self._parentItem._checkedItemsCount -= 1
+            else:
+                if self._checkstate == QtCore.Qt.Checked:
+                    self._parentItem._checkedItemsCount += 1
+                else:
+                    self._parentItem._checkedPartiallyCount -= 1
+            self._checkstate = st
+
+    def getCheckState(self):
+        return self._checkstate
+
+    def updateCheckState(self):
+        '''
+        compare checked count with child count and return True if checkstate was changed, 
+        the parent state also must be updated in this case
+        '''
+        if self._checkedItemsCount == 0 and self._checkedPartiallyCount == 0:
+            self.setCheckState(QtCore.Qt.Unchecked)
+            return True
+        
+        elif self.childCount() != self._checkedItemsCount:
+            self.setCheckState(QtCore.Qt.PartiallyChecked)
+            return True
+
+        elif self.childCount() == self._checkedItemsCount:
+            self.setCheckState(QtCore.Qt.Checked)
+            return True
+
+        return False
     
     def row(self):
         if self._parentItem is not None:
@@ -78,7 +131,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         item = index.internalPointer()
         
         if role == QtCore.Qt.CheckStateRole and index.column() == 0:
-            return item.checkstate
+            return item.getCheckState()
 
         if role != QtCore.Qt.DisplayRole:
             return None
@@ -88,8 +141,15 @@ class TreeModel(QtCore.QAbstractItemModel):
     def setData(self, index, value, role = QtCore.Qt.EditRole):
         if index.column() == 0:
             if role == QtCore.Qt.CheckStateRole:
-                self.getItem(index).checkstate = value
+                self.getItem(index).setCheckState(value)
                 self.dataChanged.emit(index, index)
+                # update parents
+                index = self.parent(index)
+                while index.isValid():
+                    if not self.getItem(index).updateCheckState():
+                        break
+                    self.dataChanged.emit(index, index)
+                    index = self.parent(index)
                 return True
             else:
                 return False
@@ -179,8 +239,9 @@ class TreeModel(QtCore.QAbstractItemModel):
                     QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
                 ], parent)
             ignored = v['ignored'] if 'ignored' in v else True
-            ch.checkstate = QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked
+            partial = v['partial'] if 'partial' in v else False
             parent.appendChild(ch)
+            ch.setCheckState(QtCore.Qt.PartiallyChecked if partial else QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked)
 
             if v['isfolder']:
                 self._setupModelData(v['content'], ch)
@@ -203,7 +264,10 @@ class TreeModel(QtCore.QAbstractItemModel):
             raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
         rv = []
         for ch in self.getItem(index)._childItems:
-            rv.append({'name': ch._itemData[0]})
+            rv.append({\
+                    'name': ch._itemData[0], \
+                    'isfolder': True if ch.childCount() > 0 else False, \
+                    'content': list(map(lambda x: {'name': x} , ch.childNames()))})
         return rv
 
     def updateSubSection(self, index, data):
@@ -214,14 +278,21 @@ class TreeModel(QtCore.QAbstractItemModel):
         
         for ch in self.getItem(index)._childItems:
             for v in data: #TODO shold be dict of dicts to avoid second for
-                if ch.data(0) == v['name']:
+                if ch._itemData[0] == v['name']:
                     ch._itemData = [
                             v['name'], 
                             v['size'] if 'size' in v else None, 
                             QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
                         ]
                     ignored = v['ignored'] if 'ignored' in v else True
-                    ch.checkstate = QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked
+                    partial = v['partial'] if 'partial' in v else False
+                    if not ignored and not v['isfolder']:
+                        ch.setCheckState(QtCore.Qt.Checked)
+                    elif partial:
+                        ch.setCheckState(QtCore.Qt.PartiallyChecked)
+        
+        self.getItem(index).updateCheckState()
+        super().dataChanged.emit(index, index, [QtCore.Qt.DisplayRole])
         
         indfirst = self.index(0, 0, index)
         indlast = self.index(self.rowCount(index), self.columnCount(index), index)
@@ -235,7 +306,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         for item in parent._childItems:
             if pref == '/' and item.data(0) == '.stignoreglobal': #additional ignore list may be needed
                 continue
-            if item.checkstate == QtCore.Qt.Checked:
+            if item.getCheckState() == QtCore.Qt.Checked:
                 plist.append(pref + item.data(0))
             else:
                 if item.childCount() > 0:

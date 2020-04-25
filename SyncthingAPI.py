@@ -71,7 +71,7 @@ class SyncthingAPI:
         indstart = l.index(self.headerSelectStart)
         indend = l.index(self.headerSelectFinish)
 
-        if il[-1].strip() == '':
+        if len(il) > 1 and il[-1].strip() == '':
             il[-1] = '\n'
         else:
             il.append('\n')
@@ -86,6 +86,7 @@ class SyncthingAPI:
         return self._refineBrowseFolderRequest(d)
 
     def getFileInfoExtended(self, fid, fn):
+        #TODO cache
         'fn: file name with path relative to the parent folder'
         rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid,fn))
         return rv
