@@ -109,8 +109,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def btSubmitClicked(self):
         if self.currentfid is not None:
-            il = self.tm.checkedPathList()
-            self.syncapi.setIgnoreSelective(self.currentfid, il)
+            nl = self.tm.checkedPathList() #new list
+            cl = self.tm.changedPathList() #changed list
+            il = self.syncapi.getIgnoreSelective(self.currentfid) #ignore list
+            self.syncapi.setIgnoreSelective(self.currentfid, \
+                    self.buildNewIgnoreList(cl, nl, il))
 
     def writeSettings(self):
         settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
@@ -159,5 +162,20 @@ class MainWindow(QtWidgets.QMainWindow):
         l = self.tm.rowNamesList(index)
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(index))
         self.tm.updateSubSection(index, l)
+
+    def buildNewIgnoreList(self, changedlist, checkedlist, ignorelist):
+        cl = list(map(lambda x: x if x.strip() == '' else '!'+x, changedlist))
+        nl = list(map(lambda x: x if x.strip() == '' else '!'+x, checkedlist))
+        for v in cl:
+            if v in ignorelist:
+                ignorelist.remove(v)
+            if v in nl:
+                ignorelist.append(v)
+
+        while ignorelist.count(''):
+            ignorelist.remove('')
+
+        ignorelist.sort()
+        return ignorelist
 
 

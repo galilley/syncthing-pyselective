@@ -76,9 +76,7 @@ class SyncthingAPI:
         else:
             il.append('\n')
 
-        result = list(map(lambda x: x if x.strip() == '' else '!'+x, il))
-
-        sendlist = l[:indstart+1] + result + l[indend:]
+        sendlist = l[:indstart+1] + il + l[indend:]
         self._postRequest('db/ignores?folder={0}'.format(fid), {'ignore': sendlist})
 
     def browseFolder(self, fid):

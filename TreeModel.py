@@ -18,6 +18,8 @@ class TreeItem:
         self._checkedItemsCount = 0
         self._checkedPartiallyCount = 0
         self._checkstate = QtCore.Qt.Unchecked
+        self._changed = False
+        self._initcheckstate = None
     
     def appendChild(self, child):
         if isinstance(child, TreeItem):
@@ -71,13 +73,25 @@ class TreeItem:
                     self._parentItem._checkedItemsCount -= 1
             else:
                 if self._checkstate == QtCore.Qt.Checked:
-                    self._parentItem._checkedItemsCount += 1
+                    self._parentItem._checkedItemsCount -= 1
                 else:
                     self._parentItem._checkedPartiallyCount -= 1
             self._checkstate = st
 
     def getCheckState(self):
         return self._checkstate
+
+    def setChanged(self):
+        'In the model should be called *before* set actual state'
+        if self._initcheckstate is None:
+            self._initcheckstate = self._checkstate
+        self._changed = True
+
+    def isChanged(self):
+        if self._changed:
+            #False if changed but returned back
+            return True if self._initcheckstate != self._checkstate else False 
+        return False
 
     def updateCheckState(self):
         '''
@@ -141,6 +155,7 @@ class TreeModel(QtCore.QAbstractItemModel):
     def setData(self, index, value, role = QtCore.Qt.EditRole):
         if index.column() == 0:
             if role == QtCore.Qt.CheckStateRole:
+                self.getItem(index).setChanged()
                 self.getItem(index).setCheckState(value)
                 self.dataChanged.emit(index, index)
                 # update parents
@@ -311,6 +326,19 @@ class TreeModel(QtCore.QAbstractItemModel):
             else:
                 if item.childCount() > 0:
                     self.checkedPathList(plist, item, pref + item.data(0) + '/')
+        return plist
+    
+    def changedPathList(self, plist = None, parent = None, pref = '/'):
+        if plist is None:
+            plist = []
+        if parent is None:
+            parent = self._rootItem
+        for item in parent._childItems:
+            if item.isChanged():
+                plist.append(pref + item.data(0))
+            else:
+                if item.childCount() > 0:
+                    self.changedPathList(plist, item, pref + item.data(0) + '/')
         return plist
 
 
