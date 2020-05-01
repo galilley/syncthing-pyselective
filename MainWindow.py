@@ -76,13 +76,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.syncapi.api_token = self.leKey.text()
 
     def extendFileInfo(self, fid, l, path = ''):
+        if path != '' and path[-1] != '/':
+            path = path + '/'
         for v in l:
             extd = self.syncapi.getFileInfoExtended( fid, path+v['name'])
+            v['size'] = extd['global']['size']
+            v['modified'] = extd['global']['modified']
+            v['ignored'] = extd['local']['ignored']
+            v['invalid'] = extd['local']['invalid']
+            
             if not v['isfolder']:
-                v['ignored'] = extd['local']['ignored']
-                v['invalid'] = extd['local']['invalid']
-                v['modified'] = extd['local']['modified']
-                v['size'] = extd['local']['size']
+                pass
+            elif 'partial' in extd['local']:
+                v['partial'] = extd['local']['partial']
             else: #do not believe 'ignore', check content
                 selcnt = 0
                 for v2 in v['content']:
@@ -160,7 +166,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def updateSectionInfo(self, index):
         l = self.tm.rowNamesList(index)
-        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(index))
+        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         self.tm.updateSubSection(index, l)
 
     def buildNewIgnoreList(self, changedlist, checkedlist, ignorelist):
@@ -169,7 +175,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for v in cl:
             if v in ignorelist:
                 ignorelist.remove(v)
-            if v in nl:
+            if v in nl and not v in ignorelist:
                 ignorelist.append(v)
 
         while ignorelist.count(''):

@@ -127,6 +127,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         QtCore.QAbstractItemModel.__init__(self, parent)
         self._rootItem = TreeItem(['Title', 'Size', 'Modified'])
         self._setupModelData(data, self._rootItem)
+        self._changedList = []
 
     def getItem(self, index):
         if index.isValid():
@@ -134,7 +135,7 @@ class TreeModel(QtCore.QAbstractItemModel):
             if item is not None:
                 return item
 
-        return self.rootItem
+        return self._rootItem
 
     def data(self, index, role):
         if not isinstance(index, QtCore.QModelIndex):
@@ -155,14 +156,18 @@ class TreeModel(QtCore.QAbstractItemModel):
     def setData(self, index, value, role = QtCore.Qt.EditRole):
         if index.column() == 0:
             if role == QtCore.Qt.CheckStateRole:
-                self.getItem(index).setChanged()
-                self.getItem(index).setCheckState(value)
+                item = self.getItem(index)
+                item.setChanged()
+                item.setCheckState(value)
+                self._addToChangedList(item)
                 self.dataChanged.emit(index, index)
                 # update parents
                 index = self.parent(index)
                 while index.isValid():
-                    if not self.getItem(index).updateCheckState():
+                    item = self.getItem(index)
+                    if not item.updateCheckState():
                         break
+                    self._addToChangedList(item)
                     self.dataChanged.emit(index, index)
                     index = self.parent(index)
                 return True
@@ -170,7 +175,14 @@ class TreeModel(QtCore.QAbstractItemModel):
                 return False
 
         return super().setData(index, value, role)
-    
+
+    def _addToChangedList(self, item):
+        fn = "/" + self.fullItemName(item)
+        if not fn in self._changedList:
+            self._changedList.append(fn)
+        #elif fn in self._changedList:
+        #    self._changedList.remove(fn)
+
     def flags(self, index):
         if not isinstance(index, QtCore.QModelIndex):
             raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
@@ -244,13 +256,13 @@ class TreeModel(QtCore.QAbstractItemModel):
             raise TypeError('Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent))))
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
-        
+        #TODO use updateSubSection() here
         for v in data:
             if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
                 continue
             ch = TreeItem([
                     v['name'], 
-                    v['size'] if 'size' in v else None, 
+                    v['size'] if ('size' in v and v['size'] != 0) else None, 
                     QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
                 ], parent)
             ignored = v['ignored'] if 'ignored' in v else True
@@ -261,17 +273,14 @@ class TreeModel(QtCore.QAbstractItemModel):
             if v['isfolder']:
                 self._setupModelData(v['content'], ch)
     
-    def fullItemName(self, index):
-        if not isinstance(index, QtCore.QModelIndex):
-            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
-        fin = ''
-        while index.isValid():
-            fin = self.itemData(index)[0] + '/' + fin
-            pi = self.parent(index)
-            if not pi.isValid():
-                break;
-            index = pi
-
+    def fullItemName(self, item):
+        if not isinstance(item, TreeItem):
+            raise TypeError('Index\'s type is {0}, but must be TreeItem'.format(str(type(item))))
+        fin = item.data(0)
+        item = item.parentItem()
+        while item is not self._rootItem:
+            fin = item.data(0) + '/' + fin
+            item = item.parentItem()
         return fin
 
     def rowNamesList(self, index):
@@ -291,20 +300,24 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
+        isparentchecked = True if self.getItem(index).getCheckState() == QtCore.Qt.Checked else False
         for ch in self.getItem(index)._childItems:
-            for v in data: #TODO shold be dict of dicts to avoid second for
+            for v in data: #TODO should be dict of dicts to avoid second for
                 if ch._itemData[0] == v['name']:
                     ch._itemData = [
                             v['name'], 
-                            v['size'] if 'size' in v else None, 
+                            v['size'] if ('size' in v and v['size'] != 0) else None, 
                             QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
                         ]
                     ignored = v['ignored'] if 'ignored' in v else True
                     partial = v['partial'] if 'partial' in v else False
-                    if not ignored and not v['isfolder']:
-                        ch.setCheckState(QtCore.Qt.Checked)
-                    elif partial:
-                        ch.setCheckState(QtCore.Qt.PartiallyChecked)
+                    if isparentchecked:
+                        ch.setChanged()
+                        self._addToChangedList(ch)
+                    ch.setCheckState( \
+                            QtCore.Qt.PartiallyChecked if partial else \
+                            QtCore.Qt.Checked if not ignored else \
+                            QtCore.Qt.Unchecked)
         
         self.getItem(index).updateCheckState()
         super().dataChanged.emit(index, index, [QtCore.Qt.DisplayRole])
@@ -329,17 +342,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         return plist
     
     def changedPathList(self, plist = None, parent = None, pref = '/'):
-        if plist is None:
-            plist = []
-        if parent is None:
-            parent = self._rootItem
-        for item in parent._childItems:
-            if item.isChanged():
-                plist.append(pref + item.data(0))
-            else:
-                if item.childCount() > 0:
-                    self.changedPathList(plist, item, pref + item.data(0) + '/')
-        return plist
+        return self._changedList
 
 
 
