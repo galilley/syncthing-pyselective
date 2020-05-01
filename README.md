@@ -3,6 +3,11 @@ Third-party app to realize selective sync in Syncthing. It gives minimalistic GU
 
 This is the firt version (0.1.0) which read the glogal folder tree and fill tree view with checkboxes. Your choise is transformed to new list of ignores and submitted into Syncthing. Please be carefull espessialy with the firsts versions as it could damage your predefined .stignore.
 
+## Limitations
+New items in partially synced folders will *not* send to remote host.
+Right now folders and files that already exist remotely can be synced with your local copy.
+New files created in wholly synced folders will send to remote host. 
+
 ## How to use
 1. Syncthing app should be started and listen default port.
 
@@ -14,7 +19,9 @@ This is the firt version (0.1.0) which read the glogal folder tree and fill tree
 
     !/.stignoreglobal
 
-    #include .stignoreglobal
+    // Uncomment the next file if only the file exists locally
+
+    //#include .stignoreglobal
 
     //\* User defined \*//
 
