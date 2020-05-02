@@ -56,6 +56,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.leKey.inputRejected.connect(self.leRestoreKeyAPI)
         grid_layout.addWidget( self.leKey, 5, 1, 1, 1)
         
+        labelver = QtWidgets.QLabel("Syncthing version:", self)
+        grid_layout.addWidget(labelver, 6, 0, 1, 1)
+        self.lver = QtWidgets.QLabel("None", self)
+        grid_layout.addWidget(self.lver, 6, 1, 1, 1)
+        
         #self.te = QtWidgets.QTextEdit(central_widget)
         #grid_layout.addWidget( self.te, 5, 0)
  
@@ -107,6 +112,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     v['partial'] = True
 
     def btGetClicked(self):
+        self.lver.setText(self.syncapi.getVersion())
         d = self.syncapi.getFoldersDict()
         self.foldsdict = d
         self.cbfolder.clear()

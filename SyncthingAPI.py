@@ -98,4 +98,8 @@ class SyncthingAPI:
             rv['local']['partial'] = False
         return rv
 
+    def getVersion(self):
+        return self._getRequest('svc/report')['version']
+
+
 
