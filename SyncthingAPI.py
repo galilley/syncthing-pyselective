@@ -3,6 +3,9 @@
 import json
 import requests
 
+import logging
+logger = logging.getLogger("PySel.SyncthingAPI")
+
 # the following url was used to build API
 # https://www.digitalocean.com/community/tutorials/how-to-use-web-apis-in-python-3
 

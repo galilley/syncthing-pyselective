@@ -8,6 +8,9 @@ except:
     from PyQt5 import QtCore
     from PyQt5 import QtWidgets
 
+import logging
+logger = logging.getLogger("PySel.TreeModel")
+
 # https://doc.qt.io/qt-5/qtwidgets-itemviews-simpletreemodel-example.html
 
 class TreeItem:
@@ -64,14 +67,17 @@ class TreeItem:
                 self._parentItem is not None and \
                 self in self._parentItem._childItems:
             if st == QtCore.Qt.Checked:
+                logger.info("Entry \'{0}\' is checked".format(self._itemData[0]))
                 self._parentItem._checkedItemsCount += 1
                 if self._checkstate == QtCore.Qt.PartiallyChecked:
                     self._parentItem._checkedPartiallyCount -= 1
             elif st == QtCore.Qt.PartiallyChecked:
+                logger.info("Entry \'{0}\' is partially checked".format(self._itemData[0]))
                 self._parentItem._checkedPartiallyCount += 1
                 if self._checkstate == QtCore.Qt.Checked:
                     self._parentItem._checkedItemsCount -= 1
             else:
+                logger.info("Entry \'{0}\' is unchecked".format(self._itemData[0]))
                 if self._checkstate == QtCore.Qt.Checked:
                     self._parentItem._checkedItemsCount -= 1
                 else:

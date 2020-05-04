@@ -11,10 +11,18 @@ except:
 from SyncthingAPI import SyncthingAPI
 from TreeModel import TreeModel
 
+import logging
+logger = logging.getLogger("PySel.MainWindow")
+
 # use helloword from https://evileg.com/ru/post/63/
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
+        self._qtver = \
+                (int(QtCore.qVersion().split('.')[0]) << 16) + \
+                (int(QtCore.qVersion().split('.')[1]) << 8) + \
+                int(QtCore.qVersion().split('.')[2])
+        logger.debug("Runtime Qt version {0} ({1})".format(QtCore.qVersion(), self._qtver))
         self.setMinimumSize(QtCore.QSize(150, 250))
         self.setWindowTitle("Syncthing PySelective")
         central_widget = QtWidgets.QWidget(self)
@@ -36,7 +44,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tm = TreeModel(parent = central_widget)
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
-        self.tv.header().setFirstSectionMovable(True)
+        if self._qtver >= 0x050B00: # >= 5.11
+            self.tv.header().setFirstSectionMovable(True)
         self.tv.expanded.connect(self.updateSectionInfo)
         #TODO
         #self.tv.setSelectionModel(self.tsm)
@@ -53,7 +62,8 @@ class MainWindow(QtWidgets.QMainWindow):
         grid_layout.addWidget(lapi, 5, 0, 1, 1)
         self.leKey = QtWidgets.QLineEdit(central_widget)
         self.leKey.editingFinished.connect(self.leSaveKeyAPI)
-        self.leKey.inputRejected.connect(self.leRestoreKeyAPI)
+        if self._qtver >= 0x050C00: # >= 5.12
+            self.leKey.inputRejected.connect(self.leRestoreKeyAPI)
         grid_layout.addWidget( self.leKey, 5, 1, 1, 1)
         
         labelver = QtWidgets.QLabel("Syncthing version:", self)
@@ -112,6 +122,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     v['partial'] = True
 
     def btGetClicked(self):
+        logger.info("Button get clicked")
         self.lver.setText(self.syncapi.getVersion())
         d = self.syncapi.getFoldersDict()
         self.foldsdict = d
@@ -120,6 +131,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cbfolder.addItem(d[k]['label'], k)
 
     def btSubmitClicked(self):
+        logger.info("Button submit clicked")
         if self.currentfid is not None:
             nl = self.tm.checkedPathList() #new list
             cl = self.tm.changedPathList() #changed list
@@ -164,6 +176,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         fid = self.cbfolder.itemData(index)
         self.currentfid = fid
+        logger.info("Folder with fid {0} selected".format(fid))
         l = self.syncapi.browseFolder(fid)
         self.extendFileInfo(fid, l)
         self.tm = TreeModel(l, self.cw)
@@ -171,6 +184,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tv.resizeColumnToContents(0)
 
     def updateSectionInfo(self, index):
+        logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         self.tm.updateSubSection(index, l)
