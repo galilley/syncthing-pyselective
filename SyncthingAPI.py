@@ -95,10 +95,13 @@ class SyncthingAPI:
         #TODO cache
         'fn: file name with path relative to the parent folder'
         rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid,fn))
-        if self._ignoreSelectiveList.count("!/" + fn) > 0 and \
-                (rv['local']['type'] == 1 or rv['local']['type'] == 'DIRECTORY'):
-            rv['local']['ignore'] = False
-            rv['local']['partial'] = False
+        if (rv['local']['type'] == 'DIRECTORY' or rv['local']['type'] == 1):
+            if ("!/" + fn) in self._ignoreSelectiveList:
+                rv['local']['ignore'] = False
+            if ("/" + fn + "/**") in self._ignoreSelectiveList:
+                rv['local']['partial'] = True
+            else:
+                rv['local']['partial'] = False
         return rv
 
     def getVersion(self):

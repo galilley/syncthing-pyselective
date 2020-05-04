@@ -133,11 +133,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def btSubmitClicked(self):
         logger.info("Button submit clicked")
         if self.currentfid is not None:
-            nl = self.tm.checkedPathList() #new list
+            nl = self.tm.checkedStatePathList() #new list
+            pl = self.tm.checkedStatePathList(state = QtCore.Qt.PartiallyChecked)
             cl = self.tm.changedPathList() #changed list
             il = self.syncapi.getIgnoreSelective(self.currentfid) #ignore list
-            self.syncapi.setIgnoreSelective(self.currentfid, \
-                    self.buildNewIgnoreList(cl, nl, il))
+            newignores = self.buildNewIgnoreList(cl, nl, pl, il)
+            if QtWidgets.QMessageBox.question( self, "Submit changes", "Are you sure?") == QtWidgets.QMessageBox.Yes:
+                logger.info("Changes accepted")
+                self.syncapi.setIgnoreSelective(self.currentfid, newignores)
+            else:
+                logger.info("Changes rejected")
 
     def writeSettings(self):
         settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
@@ -189,19 +194,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         self.tm.updateSubSection(index, l)
 
-    def buildNewIgnoreList(self, changedlist, checkedlist, ignorelist):
-        cl = list(map(lambda x: x if x.strip() == '' else '!'+x, changedlist))
-        nl = list(map(lambda x: x if x.strip() == '' else '!'+x, checkedlist))
-        for v in cl:
-            if v in ignorelist:
-                ignorelist.remove(v)
-            if v in nl and not v in ignorelist:
-                ignorelist.append(v)
+    def buildNewIgnoreList(self, changedlist, checkedlist, partiallist, ignorelist):
+        logger.debug("Changed list:\n{0}".format(changedlist))
+        logger.debug("Checked list:\n{0}".format(checkedlist))
+        logger.debug("Partially checked list:\n{0}".format(partiallist))
+        logger.debug("Initial ignores:\n{0}".format(ignorelist))
+        
+        for v in changedlist:
+            if ('!' + v) in ignorelist:
+                ignorelist.remove('!' + v)
+            if (v + '/**') in ignorelist:
+                ignorelist.remove(v + '/**')
+            if v in checkedlist:
+                ignorelist.insert(0, '!' + v)
+        
+        for v in changedlist:
+            if v in partiallist:
+                ignorelist.append(v + '/**')
+                ignorelist.append('!' + v)
 
         while ignorelist.count(''):
             ignorelist.remove('')
-
-        ignorelist.sort()
+        
+        logger.debug("Resulted ignores:\n{0}".format(ignorelist))
         return ignorelist
 
 

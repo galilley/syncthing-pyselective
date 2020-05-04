@@ -332,7 +332,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         indlast = self.index(self.rowCount(index), self.columnCount(index), index)
         super().dataChanged.emit(indfirst, indlast, [QtCore.Qt.DisplayRole])
         
-    def checkedPathList(self, plist = None, parent = None, pref = '/'):
+    def checkedStatePathList(self, plist = None, parent = None, pref = '/', state = QtCore.Qt.Checked):
         if plist is None:
             plist = []
         if parent is None:
@@ -340,11 +340,10 @@ class TreeModel(QtCore.QAbstractItemModel):
         for item in parent._childItems:
             if pref == '/' and item.data(0) == '.stignoreglobal': #additional ignore list may be needed
                 continue
-            if item.getCheckState() == QtCore.Qt.Checked:
+            if item.getCheckState() == state:
                 plist.append(pref + item.data(0))
-            else:
-                if item.childCount() > 0:
-                    self.checkedPathList(plist, item, pref + item.data(0) + '/')
+            if (state != QtCore.Qt.Checked) or (item.getCheckState() != QtCore.Qt.Checked) and (item.childCount() > 0):
+                self.checkedStatePathList(plist, item, pref + item.data(0) + '/', state)
         return plist
     
     def changedPathList(self, plist = None, parent = None, pref = '/'):
