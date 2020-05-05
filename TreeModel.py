@@ -2,10 +2,12 @@
 
 try:
     from PySide import QtCore
+    from PySide import QtGui
     from PySide import QtWidgets
 except:
     from PyQt5.QtCore import pyqtSlot as Slot
     from PyQt5 import QtCore
+    from PyQt5 import QtGui
     from PyQt5 import QtWidgets
 
 import logging
@@ -14,7 +16,7 @@ logger = logging.getLogger("PySel.TreeModel")
 # https://doc.qt.io/qt-5/qtwidgets-itemviews-simpletreemodel-example.html
 
 class TreeItem:
-    def __init__(self, data = [], parent = None):
+    def __init__(self, data = [], isfolder = False, parent = None):
         self._parentItem = parent
         self._itemData = data
         self._childItems = []
@@ -23,6 +25,7 @@ class TreeItem:
         self._checkstate = QtCore.Qt.Unchecked
         self._changed = False
         self._initcheckstate = None
+        self.isfolder = isfolder
     
     def appendChild(self, child):
         if isinstance(child, TreeItem):
@@ -134,6 +137,8 @@ class TreeModel(QtCore.QAbstractItemModel):
         self._rootItem = TreeItem(['Title', 'Size', 'Modified'])
         self._setupModelData(data, self._rootItem)
         self._changedList = []
+        self._appStyle = QtWidgets.QApplication.style()
+        self._tv = parent
 
     def getItem(self, index):
         if index.isValid():
@@ -153,6 +158,18 @@ class TreeModel(QtCore.QAbstractItemModel):
         
         if role == QtCore.Qt.CheckStateRole and index.column() == 0:
             return item.getCheckState()
+        
+        if role == QtCore.Qt.DecorationRole and index.column() == 0:
+            if item.isfolder:
+                if self._tv.isExpanded(index):
+                    return self._appStyle.standardIcon(QtWidgets.QStyle.SP_DirOpenIcon)
+                else:
+                    return self._appStyle.standardIcon(QtWidgets.QStyle.SP_DirIcon)
+            else:
+                return self._appStyle.standardIcon(QtWidgets.QStyle.SP_FileIcon)
+
+        if role == QtCore.Qt.ForegroundRole and item.getCheckState() == QtCore.Qt.Unchecked:
+            return QtGui.QBrush(QtCore.Qt.gray)
 
         if role != QtCore.Qt.DisplayRole:
             return None
@@ -194,6 +211,8 @@ class TreeModel(QtCore.QAbstractItemModel):
             raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
+
+        # Qt::ItemIsUserTristate TODO for dirs
 
         rv = super().flags(index)
         if index.column() == 0:
@@ -270,7 +289,7 @@ class TreeModel(QtCore.QAbstractItemModel):
                     v['name'], 
                     v['size'] if ('size' in v and v['size'] != 0) else None, 
                     QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
-                ], parent)
+                ], v['isfolder'], parent)
             ignored = v['ignored'] if 'ignored' in v else True
             partial = v['partial'] if 'partial' in v else False
             parent.appendChild(ch)

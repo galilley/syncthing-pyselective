@@ -2,10 +2,12 @@
 
 try:
     from PySide import QtCore
+    from PySide import QtGui
     from PySide import QtWidgets
 except:
     from PyQt5.QtCore import pyqtSlot as Slot
     from PyQt5 import QtCore
+    from PyQt5 import QtGui
     from PyQt5 import QtWidgets
 
 from SyncthingAPI import SyncthingAPI
@@ -25,6 +27,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Runtime Qt version {0} ({1})".format(QtCore.qVersion(), self._qtver))
         self.setMinimumSize(QtCore.QSize(150, 250))
         self.setWindowTitle("Syncthing PySelective")
+        self.setWindowIcon(QtGui.QIcon('icons/syncthing_pysel.png'))
         central_widget = QtWidgets.QWidget(self)
         self.cw = central_widget
         self.setCentralWidget(central_widget)
@@ -122,6 +125,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     v['partial'] = True
 
     def btGetClicked(self):
+        self.setCursor(QtCore.Qt.WaitCursor)
         logger.info("Button get clicked")
         self.lver.setText(self.syncapi.getVersion())
         d = self.syncapi.getFoldersDict()
@@ -129,8 +133,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cbfolder.clear()
         for k in d.keys():
             self.cbfolder.addItem(d[k]['label'], k)
+        self.unsetCursor()
 
     def btSubmitClicked(self):
+        self.setCursor(QtCore.Qt.WaitCursor)
         logger.info("Button submit clicked")
         if self.currentfid is not None:
             nl = self.tm.checkedStatePathList() #new list
@@ -143,6 +149,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.syncapi.setIgnoreSelective(self.currentfid, newignores)
             else:
                 logger.info("Changes rejected")
+        self.unsetCursor()
 
     def writeSettings(self):
         settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
@@ -179,20 +186,24 @@ class MainWindow(QtWidgets.QMainWindow):
         if index < 0: #avoid signal from empty box
             return
 
+        self.setCursor(QtCore.Qt.WaitCursor)
         fid = self.cbfolder.itemData(index)
         self.currentfid = fid
         logger.info("Folder with fid {0} selected".format(fid))
         l = self.syncapi.browseFolder(fid)
         self.extendFileInfo(fid, l)
-        self.tm = TreeModel(l, self.cw)
+        self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
         self.tv.resizeColumnToContents(0)
+        self.unsetCursor()
 
     def updateSectionInfo(self, index):
+        self.setCursor(QtCore.Qt.WaitCursor)
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         self.tm.updateSubSection(index, l)
+        self.unsetCursor()
 
     def buildNewIgnoreList(self, changedlist, checkedlist, partiallist, ignorelist):
         logger.debug("Changed list:\n{0}".format(changedlist))
