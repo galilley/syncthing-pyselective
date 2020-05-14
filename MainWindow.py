@@ -44,7 +44,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tv = QtWidgets.QTreeView(central_widget)
         grid_layout.addWidget( self.tv, 2, 0, 1, 2)
-        self.tm = TreeModel(parent = central_widget)
+        self.tm = TreeModel(parent = self.tv)
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
         if self._qtver >= 0x050B00: # >= 5.11

@@ -2,6 +2,7 @@
 
 import json
 import requests
+import types
 
 import logging
 logger = logging.getLogger("PySel.SyncthingAPI")
@@ -20,6 +21,9 @@ class SyncthingAPI:
     def _getRequest(self, suff):
         api_url = self.api_url_base + suff
         response = requests.get(api_url, headers = {'X-API-Key': self.api_token})
+
+        if isinstance(response, types.GeneratorType):
+            raise ImportError('It seems you use \"yieldfrom.request\" instead of \"requests\"')
 
         if response.status_code == 200:
             return json.loads(response.content.decode('utf-8'))
@@ -105,7 +109,10 @@ class SyncthingAPI:
         return rv
 
     def getVersion(self):
-        return self._getRequest('svc/report')['version']
+        logger.debug("Try read syncthing version...")
+        rv = self._getRequest('svc/report')['version']
+        logger.debug("Ok: {0}".format(rv))
+        return rv
 
 
 

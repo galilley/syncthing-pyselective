@@ -134,11 +134,11 @@ class TreeItem:
 class TreeModel(QtCore.QAbstractItemModel):
     def __init__(self, data = [], parent = None):
         QtCore.QAbstractItemModel.__init__(self, parent)
+        self._tv = parent
         self._rootItem = TreeItem(['Title', 'Size', 'Modified'])
-        self._setupModelData(data, self._rootItem)
         self._changedList = []
         self._appStyle = QtWidgets.QApplication.style()
-        self._tv = parent
+        self._setupModelData(data, self._rootItem)
 
     def getItem(self, index):
         if index.isValid():
@@ -281,14 +281,21 @@ class TreeModel(QtCore.QAbstractItemModel):
             raise TypeError('Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent))))
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
+        # try set date format
+        try:
+            df = QtCore.Qt.ISODateWithMs
+        except AttributeError:
+            df = QtCore.Qt.ISODate
+            logger.warning("Your Qt version is too old, date conversion could be incomplete")
         #TODO use updateSubSection() here
         for v in data:
             if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
                 continue
+
             ch = TreeItem([
                     v['name'], 
                     v['size'] if ('size' in v and v['size'] != 0) else None, 
-                    QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
+                    QtCore.QDateTime.fromString( v['modified'], df) if 'modified' in v else None,
                 ], v['isfolder'], parent)
             ignored = v['ignored'] if 'ignored' in v else True
             partial = v['partial'] if 'partial' in v else False
@@ -325,6 +332,13 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
+        # try set date format
+        try:
+            df = QtCore.Qt.ISODateWithMs
+        except AttributeError:
+            df = QtCore.Qt.ISODate
+            logger.warning("Your Qt version is too old, date conversion could be incomplete")
+        
         isparentchecked = True if self.getItem(index).getCheckState() == QtCore.Qt.Checked else False
         for ch in self.getItem(index)._childItems:
             for v in data: #TODO should be dict of dicts to avoid second for
@@ -332,7 +346,7 @@ class TreeModel(QtCore.QAbstractItemModel):
                     ch._itemData = [
                             v['name'], 
                             v['size'] if ('size' in v and v['size'] != 0) else None, 
-                            QtCore.QDateTime.fromString( v['modified'], QtCore.Qt.ISODateWithMs) if 'modified' in v else None,
+                            QtCore.QDateTime.fromString( v['modified'], df) if 'modified' in v else None,
                         ]
                     ignored = v['ignored'] if 'ignored' in v else True
                     partial = v['partial'] if 'partial' in v else False
