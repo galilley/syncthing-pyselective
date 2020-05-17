@@ -3,6 +3,7 @@
 import json
 import requests
 import types
+import urllib
 
 import logging
 logger = logging.getLogger("PySel.SyncthingAPI")
@@ -19,7 +20,7 @@ class SyncthingAPI:
         self._ignoreSelectiveList = []
 
     def _getRequest(self, suff):
-        api_url = self.api_url_base + suff.replace('+','%2B')
+        api_url = self.api_url_base + suff
         response = requests.get(api_url, headers = {'X-API-Key': self.api_token})
 
         if isinstance(response, types.GeneratorType):
@@ -100,7 +101,7 @@ class SyncthingAPI:
     def getFileInfoExtended(self, fid, fn):
         #TODO cache
         'fn: file name with path relative to the parent folder'
-        rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid,fn))
+        rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid, urllib.parse.quote(fn)))
         if (rv['local']['type'] == 'DIRECTORY' or rv['local']['type'] == 1):
             if ("!/" + fn) in self._ignoreSelectiveList:
                 rv['local']['ignore'] = False
