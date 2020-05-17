@@ -19,7 +19,7 @@ class SyncthingAPI:
         self._ignoreSelectiveList = []
 
     def _getRequest(self, suff):
-        api_url = self.api_url_base + suff
+        api_url = self.api_url_base + suff.replace('+','%2B')
         response = requests.get(api_url, headers = {'X-API-Key': self.api_token})
 
         if isinstance(response, types.GeneratorType):
@@ -29,6 +29,8 @@ class SyncthingAPI:
             return json.loads(response.content.decode('utf-8'))
         elif response.status_code == 403:
             raise requests.RequestException('Forbidden, api token could be wrong')
+        elif response.status_code == 404:
+            logger.warning("No object in the index: {0}".format(suff))
         else:
             raise requests.RequestException('Wrong status code: '+ str(response.status_code) + " (" + suff + ")")
 
