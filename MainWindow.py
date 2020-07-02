@@ -211,14 +211,29 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Partially checked list:\n{0}".format(partiallist))
         logger.debug("Initial ignores:\n{0}".format(ignorelist))
         
+        # clean lists
         for v in changedlist:
+            # clear exact matching
             if ('!' + v) in ignorelist:
                 ignorelist.remove('!' + v)
+            # clear ignore (valid for partially synced dirs)
             if (v + '/**') in ignorelist:
                 ignorelist.remove(v + '/**')
+            # remove subitems if parent is not partially checked
+            if (v in checkedlist) or (v not in partiallist):
+                for i in ignorelist[:]:
+                    if (i.startswith(v) and i != v) or i.startswith('!' + v):
+                        ignorelist.remove(i)
+                for c in checkedlist[:]:
+                    if (c.startswith(v) and c != v) or c.startswith('!' + v):
+                        checkedlist.remove(c)
+        
+        # exclude item from ignore if checked
+        for v in changedlist:
             if v in checkedlist:
                 ignorelist.insert(0, '!' + v)
         
+        # hack to sync parent folder, seems could be skipped for versions above 1.5
         for v in changedlist:
             if v in partiallist:
                 ignorelist.append(v + '/**')
