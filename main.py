@@ -5,7 +5,7 @@ import logging
 import argparse
 
 try:
-    from PySide import QtWidgets
+    from PySide2 import QtWidgets
 except:
     from PyQt5 import QtWidgets
 

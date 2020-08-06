@@ -1,0 +1,3 @@
+{
+    "files": ["main.py","MainWindow.py","FileSystem.py","TreeModel.py","SyncthingAPI.py","ItemProperty.py"]
+}

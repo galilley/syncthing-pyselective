@@ -10,6 +10,8 @@ except:
     from PyQt5 import QtGui
     from PyQt5 import QtWidgets
 
+import ItemProperty as iprop
+
 import logging
 logger = logging.getLogger("PySel.TreeModel")
 
@@ -25,10 +27,12 @@ class TreeItem:
         self._checkstate = QtCore.Qt.Unchecked
         self._changed = False
         self._initcheckstate = None
+        self.syncstate = None
         self.isfolder = isfolder
-    
+
     def appendChild(self, child):
         if isinstance(child, TreeItem):
+            logger.debug("appendChild {}".format(child.data(0)))
             self._childItems.append(child)
             if child.getCheckState() == QtCore.Qt.Checked:
                 self._checkedItemsCount += 1
@@ -89,6 +93,11 @@ class TreeItem:
 
     def getCheckState(self):
         return self._checkstate
+
+    def setSyncState(self, v):
+        if not isinstance(v, iprop.SyncState):
+            raise TypeError('State\'s type is {0}, but must be ItemProperty.SyncState'.format(str(type(v))))
+        self.syncstate = v
 
     def setChanged(self):
         'In the model should be called *before* set actual state'
@@ -168,8 +177,20 @@ class TreeModel(QtCore.QAbstractItemModel):
             else:
                 return self._appStyle.standardIcon(QtWidgets.QStyle.SP_FileIcon)
 
-        if role == QtCore.Qt.ForegroundRole and item.getCheckState() == QtCore.Qt.Unchecked:
-            return QtGui.QBrush(QtCore.Qt.gray)
+        # set colors in depends of sync state
+        if role == QtCore.Qt.ForegroundRole:
+            if item.syncstate is None:
+                if item.getCheckState() == QtCore.Qt.Unchecked:
+                    return QtGui.QBrush(QtCore.Qt.gray)
+            else:
+                if item.syncstate is iprop.SyncState.newlocal:
+                    return QtGui.QBrush(QtCore.Qt.darkGreen)
+                elif item.syncstate is iprop.SyncState.ignored:
+                    return QtGui.QBrush(QtCore.Qt.gray)
+                elif item.syncstate is iprop.SyncState.conflict:
+                    return QtGui.QBrush(QtCore.Qt.red)
+                else:
+                    pass
 
         if role != QtCore.Qt.DisplayRole:
             return None
@@ -273,38 +294,43 @@ class TreeModel(QtCore.QAbstractItemModel):
             return self.getItem(parent).columnCount()
         return self._rootItem.columnCount()
 
-    
-    def _setupModelData(self, data, parent = None):
+    def _setupModelData(self, data, parent=None, _isrecursive=False):
         if parent is None:
             parent = self._rootItem
         if not isinstance(parent, TreeItem):
-            raise TypeError('Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent))))
+            msg = 'Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent)))
+            raise TypeError(msg)
         if not isinstance(data, list):
-            raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
-        # try set date format
-        try:
-            df = QtCore.Qt.ISODateWithMs
-        except AttributeError:
-            df = QtCore.Qt.ISODate
-            logger.warning("Your Qt version is too old, date conversion could be incomplete")
+            msg = 'data\'s type is {0}, but must be list'.format(str(type(data)))
+            raise TypeError(msg)
         #TODO use updateSubSection() here
         for v in data:
             if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
                 continue
 
-            ch = TreeItem([
-                    v['name'], 
-                    v['size'] if ('size' in v and v['size'] != 0) else None, 
-                    QtCore.QDateTime.fromString( v['modified'], df) if 'modified' in v else None,
-                ], v['isfolder'], parent)
-            ignored = v['ignored'] if 'ignored' in v else True
-            partial = v['partial'] if 'partial' in v else False
-            parent.appendChild(ch)
-            ch.setCheckState(QtCore.Qt.PartiallyChecked if partial else QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked)
+            if _isrecursive:
+                ch = TreeItem([v['name'], None, None], v['isfolder'], parent)
+                parent.appendChild(ch)
+            else:
+                ch = TreeItem([
+                        v['name'],
+                        v['size'] if ('size' in v and v['size'] != 0) else None,
+                        v['modified'] if 'modified' in v else None,
+                    ], v['isfolder'], parent)
+                ignored = v['ignored'] if 'ignored' in v else True
+                partial = v['partial'] if 'partial' in v else False
+                parent.appendChild(ch)
+                ch.setCheckState(QtCore.Qt.PartiallyChecked if partial else QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked)
 
-            if v['isfolder']:
-                self._setupModelData(v['content'], ch)
-    
+                if 'syncstate' in v:
+                    ch.setSyncState(v['syncstate'])
+                elif ignored:
+                    ch.setSyncState(iprop.SyncState.ignored)
+                else:
+                    ch.setSyncState(iprop.SyncState.syncing)
+                if v['isfolder']:
+                    self._setupModelData(v['content'], ch, _isrecursive=True)
+
     def fullItemName(self, item):
         if not isinstance(item, TreeItem):
             raise TypeError('Index\'s type is {0}, but must be TreeItem'.format(str(type(item))))
@@ -322,7 +348,8 @@ class TreeModel(QtCore.QAbstractItemModel):
         for ch in self.getItem(index)._childItems:
             rv.append({\
                     'name': ch._itemData[0], \
-                    'isfolder': True if ch.childCount() > 0 else False, \
+                    'isfolder': ch.isfolder, \
+                    'syncstate': iprop.SyncState.unknown if ch.syncstate is None else ch.syncstate, \
                     'content': list(map(lambda x: {'name': x} , ch.childNames()))})
         return rv
 
@@ -332,13 +359,6 @@ class TreeModel(QtCore.QAbstractItemModel):
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
-        # try set date format
-        try:
-            df = QtCore.Qt.ISODateWithMs
-        except AttributeError:
-            df = QtCore.Qt.ISODate
-            logger.warning("Your Qt version is too old, date conversion could be incomplete")
-        
         isparentchecked = True if self.getItem(index).getCheckState() == QtCore.Qt.Checked else False
         for ch in self.getItem(index)._childItems:
             for v in data: #TODO should be dict of dicts to avoid second for
@@ -346,7 +366,7 @@ class TreeModel(QtCore.QAbstractItemModel):
                     ch._itemData = [
                             v['name'], 
                             v['size'] if ('size' in v and v['size'] != 0) else None, 
-                            QtCore.QDateTime.fromString( v['modified'], df) if 'modified' in v else None,
+                            v['modified'] if 'modified' in v else None,
                         ]
                     ignored = v['ignored'] if 'ignored' in v else True
                     partial = v['partial'] if 'partial' in v else False
@@ -357,7 +377,18 @@ class TreeModel(QtCore.QAbstractItemModel):
                             QtCore.Qt.PartiallyChecked if partial else \
                             QtCore.Qt.Checked if not ignored else \
                             QtCore.Qt.Unchecked)
-        
+                    if 'syncstate' in v:
+                        ch.setSyncState(v['syncstate'])
+                    elif ignored:
+                        ch.setSyncState(iprop.SyncState.ignored)
+                    else:
+                        ch.setSyncState(iprop.SyncState.syncing)
+
+                    if v['isfolder'] and len(v['content']) != ch.childCount():
+                        self.beginInsertRows(index, 0, len(v['content']));
+                        self._setupModelData(v['content'], ch, _isrecursive=True)
+                        self.endInsertRows();
+
         self.getItem(index).updateCheckState()
         super().dataChanged.emit(index, index, [QtCore.Qt.DisplayRole])
         

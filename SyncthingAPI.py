@@ -4,6 +4,7 @@ import json
 import requests
 import types
 import urllib
+from functools import lru_cache
 
 import logging
 logger = logging.getLogger("PySel.SyncthingAPI")
@@ -98,8 +99,16 @@ class SyncthingAPI:
         self._ignoreSelectiveList = self.getIgnoreSelective(fid)
         return self._refineBrowseFolderRequest(d)
 
+    def browseFolderPartial(self, fid, path='', lev=0):
+        if path == '':
+            d = self._getRequest('db/browse?folder={0}&levels={1}'.format(fid, lev))
+        else:
+            d = self._getRequest('db/browse?folder={0}&prefix={1}&levels={2}'.format(fid, path, lev))
+        self._ignoreSelectiveList = self.getIgnoreSelective(fid) # TODO caching
+        return self._refineBrowseFolderRequest(d)
+
+    @lru_cache(maxsize=100)
     def getFileInfoExtended(self, fid, fn):
-        #TODO cache
         'fn: file name with path relative to the parent folder'
         rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid, urllib.parse.quote(fn)))
         if (rv['local']['type'] == 'DIRECTORY' or rv['local']['type'] == 1):

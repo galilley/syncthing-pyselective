@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os
+
 try:
-    from PySide import QtCore
-    from PySide import QtGui
-    from PySide import QtWidgets
+    from PySide2 import QtCore
+    from PySide2 import QtGui
+    from PySide2 import QtWidgets
 except:
     from PyQt5.QtCore import pyqtSlot as Slot
     from PyQt5 import QtCore
@@ -92,16 +94,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.leKey.setText( settings.value("apikey", "None"))
         settings.endGroup();
         self.syncapi.api_token = self.leKey.text()
+        # try set date format
+        try:
+            self.df = QtCore.Qt.ISODateWithMs
+        except AttributeError:
+            self.df = QtCore.Qt.ISODate
+            logger.warning("Your Qt version is too old, date conversion could be incomplete")
 
     def extendFileInfo(self, fid, l, path = ''):
+        contents = self.syncapi.browseFolderPartial(fid, path, lev=1)
         if path != '' and path[-1] != '/':
             path = path + '/'
         for v in l:
             extd = self.syncapi.getFileInfoExtended( fid, path+v['name'])
             v['size'] = extd['global']['size']
-            v['modified'] = extd['global']['modified']
+            v['modified'] = QtCore.QDateTime.fromString( extd['global']['modified'], self.df)
             v['ignored'] = extd['local']['ignored']
             v['invalid'] = extd['local']['invalid']
+
+            if v['isfolder']:
+                # TODO dict of dicts to avoid for
+                for c in contents:
+                    if c['name'] == v['name']:
+                       v['content'] = c['content']
             
             if not v['isfolder']:
                 pass
@@ -190,8 +205,9 @@ class MainWindow(QtWidgets.QMainWindow):
         fid = self.cbfolder.itemData(index)
         self.currentfid = fid
         logger.info("Folder with fid {0} selected".format(fid))
-        l = self.syncapi.browseFolder(fid)
-        self.extendFileInfo(fid, l)
+        logger.info("Path is {}".format(self.foldsdict[fid]['path']))
+        l = self.syncapi.browseFolderPartial(fid)
+        self.extendFileInfo(self.currentfid, l)
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
         self.tv.resizeColumnToContents(0)
