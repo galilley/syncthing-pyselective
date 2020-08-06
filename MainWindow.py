@@ -13,7 +13,9 @@ except:
     from PyQt5 import QtWidgets
 
 from SyncthingAPI import SyncthingAPI
+from FileSystem import FileSystem
 from TreeModel import TreeModel
+import ItemProperty as iprop
 
 import logging
 logger = logging.getLogger("PySel.MainWindow")
@@ -87,6 +89,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.currentfid = None
         self.syncapi = SyncthingAPI()
+        self.fs = FileSystem()
 
         self.readSettings()
         settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
@@ -138,6 +141,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     v['ignored'] = False
                     v['partial'] = True
+
+            if 'syncstate' in v:
+                if not v['ignored'] or ('partial' in v and v['partial']):
+                    v['syncstate'] = iprop.SyncState.syncing
+                else:
+                    v['syncstate'] = iprop.SyncState.ignored
 
     def btGetClicked(self):
         self.setCursor(QtCore.Qt.WaitCursor)
@@ -208,6 +217,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Path is {}".format(self.foldsdict[fid]['path']))
         l = self.syncapi.browseFolderPartial(fid)
         self.extendFileInfo(self.currentfid, l)
+        self.fs.extendByLocal(l, self.foldsdict[fid]['path'])
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
         self.tv.resizeColumnToContents(0)
@@ -218,6 +228,9 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
+        self.fs.extendByLocal(l, os.path.join(
+            self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))
+            ))
         self.tm.updateSubSection(index, l)
         self.unsetCursor()
 

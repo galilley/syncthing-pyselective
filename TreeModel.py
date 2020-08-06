@@ -317,17 +317,17 @@ class TreeModel(QtCore.QAbstractItemModel):
                         v['size'] if ('size' in v and v['size'] != 0) else None,
                         v['modified'] if 'modified' in v else None,
                     ], v['isfolder'], parent)
-                ignored = v['ignored'] if 'ignored' in v else True
+                ignored = v['ignored'] if 'ignored' in v else True  # may be it worth omit here
                 partial = v['partial'] if 'partial' in v else False
                 parent.appendChild(ch)
                 ch.setCheckState(QtCore.Qt.PartiallyChecked if partial else QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked)
 
                 if 'syncstate' in v:
                     ch.setSyncState(v['syncstate'])
-                elif ignored:
-                    ch.setSyncState(iprop.SyncState.ignored)
-                else:
+                elif partial or not ignored:  #  the same as in MW
                     ch.setSyncState(iprop.SyncState.syncing)
+                else:
+                    ch.setSyncState(iprop.SyncState.ignored)
                 if v['isfolder']:
                     self._setupModelData(v['content'], ch, _isrecursive=True)
 
@@ -379,10 +379,10 @@ class TreeModel(QtCore.QAbstractItemModel):
                             QtCore.Qt.Unchecked)
                     if 'syncstate' in v:
                         ch.setSyncState(v['syncstate'])
-                    elif ignored:
-                        ch.setSyncState(iprop.SyncState.ignored)
-                    else:
+                    elif partial or not ignored:
                         ch.setSyncState(iprop.SyncState.syncing)
+                    else:
+                        ch.setSyncState(iprop.SyncState.ignored)
 
                     if v['isfolder'] and len(v['content']) != ch.childCount():
                         self.beginInsertRows(index, 0, len(v['content']));
