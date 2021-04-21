@@ -39,19 +39,21 @@ class FileSystem:
             logger.debug("New file: {}".format(fn))
             item = {'name' : fn}
             if fi.isDir():
-                item['isfolder'] = True
+                item['type'] = iprop.Type.DIRECTORY.name
                 cl = QtCore.QDir(d.filePath(fn)).entryList()
                 cl.remove('.')
                 cl.remove('..')
                 cont = []
                 for fnc in cl:
                     cont.append({'name' : fnc,
-                                'isfolder' : QtCore.QFileInfo(d.filePath(fnc)).isDir(),
+                                'type' : \
+                                    iprop.Type.DIRECTORY.name if QtCore.QFileInfo(d.filePath(fnc)).isDir() \
+                                        else iprop.Type.FILE.name,
                                 'syncstate' : iprop.SyncState.unknown})
-                item['content'] = cont
-                logger.debug("    Content: {}".format(cont))
+                item['children'] = cont
+                logger.debug("    Children: {}".format(cont))
             else:
-                item['isfolder'] = False
+                item['type'] = iprop.Type.FILE.name
             item['size'] = fi.size()
             item['modified'] = fi.fileTime(QtCore.QFileDevice.FileModificationTime)
             item['syncstate'] = iprop.SyncState.newlocal

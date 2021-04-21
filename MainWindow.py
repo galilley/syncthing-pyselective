@@ -115,28 +115,30 @@ class MainWindow(QtWidgets.QMainWindow):
             v['ignored'] = extd['local']['ignored']
             v['invalid'] = extd['local']['invalid']
 
-            if v['isfolder']:
+            if iprop.Type[v['type']] is iprop.Type.DIRECTORY:
                 # TODO dict of dicts to avoid for
                 for c in contents:
                     if c['name'] == v['name']:
-                       v['content'] = c['content']
+                        if 'children' in c:
+                            v['children'] = c['children']
+                        else:
+                            v['children'] = []
             
-            if not v['isfolder']:
+            if iprop.Type[v['type']] is not iprop.Type.DIRECTORY:
                 pass
             elif 'partial' in extd['local']:
                 v['partial'] = extd['local']['partial']
             else: #do not believe 'ignore', check content
                 selcnt = 0
-                for v2 in v['content']:
+                for v2 in v['children']:
                     if self.syncapi.getFileInfoExtended( \
                             fid, path+v['name']+'/' + v2['name'])['local']['ignored'] == False:
                         selcnt += 1
 
-                if selcnt == len(v['content']):
-                    v['ignored'] = False
+                if selcnt == 0:
                     v['partial'] = False
-                elif selcnt == 0:
-                    v['ignored'] = True
+                elif selcnt == len(v['children']):
+                    v['ignored'] = False
                     v['partial'] = False
                 else:
                     v['ignored'] = False
@@ -227,7 +229,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCursor(QtCore.Qt.WaitCursor)
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
+        logger.debug("Items: {}".format(l))
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
+        logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))
             ))

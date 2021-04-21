@@ -198,6 +198,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         return item.data(index.column())
     
     def setData(self, index, value, role = QtCore.Qt.EditRole):
+        logger.debug("setData value {}".format(value))
         if index.column() == 0:
             if role == QtCore.Qt.CheckStateRole:
                 item = self.getItem(index)
@@ -311,12 +312,13 @@ class TreeModel(QtCore.QAbstractItemModel):
         for ch in self.getItem(index)._childItems:
             rv.append({\
                     'name': ch._itemData[0], \
-                    'isfolder': ch.isfolder, \
+                    'type': iprop.Type.DIRECTORY.name if ch.isfolder else iprop.Type.FILE.name, \
                     'syncstate': iprop.SyncState.unknown if ch.syncstate is None else ch.syncstate, \
-                    'content': list(map(lambda x: {'name': x} , ch.childNames()))})
+                    'children': list(map(lambda x: {'name': x} , ch.childNames()))})
         return rv
 
     def _fillItemByDict(self, ch, v):
+        logger.debug("_fillItemByDict {}".format(v))
         ch._itemData = [
                 v['name'], 
                 v['size'] if ('size' in v and v['size'] != 0) else None, 
@@ -350,15 +352,15 @@ class TreeModel(QtCore.QAbstractItemModel):
             if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
                 continue
 
-            ch = TreeItem([v['name'], None, None], v['isfolder'], parent)
+            ch = TreeItem([v['name'], None, None], iprop.Type[v['type']] is iprop.Type.DIRECTORY, parent)
             parent.appendChild(ch)
             if _isrecursive:
                 continue
             
             self._fillItemByDict(ch, v)
             
-            if v['isfolder']:
-                self._setupModelData(v['content'], ch, _isrecursive=True)
+            if iprop.Type[v['type']] is iprop.Type.DIRECTORY:
+                self._setupModelData(v['children'], ch, _isrecursive=True)
 
     def updateSubSection(self, index, data):
         if not isinstance(index, QtCore.QModelIndex):
@@ -375,9 +377,9 @@ class TreeModel(QtCore.QAbstractItemModel):
                         ch.setChanged()
                         self._addToChangedList(ch)
 
-                    if v['isfolder'] and len(v['content']) != ch.childCount():
-                        self.beginInsertRows(index, 0, len(v['content']));
-                        self._setupModelData(v['content'], ch, _isrecursive=True)
+                    if iprop.Type[v['type']] is iprop.Type.DIRECTORY and len(v['children']) != ch.childCount():
+                        self.beginInsertRows(index, 0, len(v['children']));
+                        self._setupModelData(v['children'], ch, _isrecursive=True)
                         self.endInsertRows();
 
         self.getItem(index).updateCheckState()
