@@ -294,43 +294,6 @@ class TreeModel(QtCore.QAbstractItemModel):
             return self.getItem(parent).columnCount()
         return self._rootItem.columnCount()
 
-    def _setupModelData(self, data, parent=None, _isrecursive=False):
-        if parent is None:
-            parent = self._rootItem
-        if not isinstance(parent, TreeItem):
-            msg = 'Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent)))
-            raise TypeError(msg)
-        if not isinstance(data, list):
-            msg = 'data\'s type is {0}, but must be list'.format(str(type(data)))
-            raise TypeError(msg)
-        #TODO use updateSubSection() here
-        for v in data:
-            if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
-                continue
-
-            if _isrecursive:
-                ch = TreeItem([v['name'], None, None], v['isfolder'], parent)
-                parent.appendChild(ch)
-            else:
-                ch = TreeItem([
-                        v['name'],
-                        v['size'] if ('size' in v and v['size'] != 0) else None,
-                        v['modified'] if 'modified' in v else None,
-                    ], v['isfolder'], parent)
-                ignored = v['ignored'] if 'ignored' in v else True  # may be it worth omit here
-                partial = v['partial'] if 'partial' in v else False
-                parent.appendChild(ch)
-                ch.setCheckState(QtCore.Qt.PartiallyChecked if partial else QtCore.Qt.Checked if not ignored else QtCore.Qt.Unchecked)
-
-                if 'syncstate' in v:
-                    ch.setSyncState(v['syncstate'])
-                elif partial or not ignored:  #  the same as in MW
-                    ch.setSyncState(iprop.SyncState.syncing)
-                else:
-                    ch.setSyncState(iprop.SyncState.ignored)
-                if v['isfolder']:
-                    self._setupModelData(v['content'], ch, _isrecursive=True)
-
     def fullItemName(self, item):
         if not isinstance(item, TreeItem):
             raise TypeError('Index\'s type is {0}, but must be TreeItem'.format(str(type(item))))
@@ -353,6 +316,50 @@ class TreeModel(QtCore.QAbstractItemModel):
                     'content': list(map(lambda x: {'name': x} , ch.childNames()))})
         return rv
 
+    def _fillItemByDict(self, ch, v):
+        ch._itemData = [
+                v['name'], 
+                v['size'] if ('size' in v and v['size'] != 0) else None, 
+                v['modified'] if 'modified' in v else None,
+            ]
+        ignored = v['ignored'] if 'ignored' in v else True
+        partial = v['partial'] if 'partial' in v else False
+        ch.setCheckState(
+                QtCore.Qt.PartiallyChecked if partial else
+                QtCore.Qt.Checked if not ignored else
+                QtCore.Qt.Unchecked)
+        if 'syncstate' in v:
+            ch.setSyncState(v['syncstate'])
+        elif partial or not ignored:
+            ch.setSyncState(iprop.SyncState.syncing)
+        else:
+            ch.setSyncState(iprop.SyncState.ignored)
+        return ch
+
+    def _setupModelData(self, data, parent=None, _isrecursive=False):
+        if parent is None:
+            parent = self._rootItem
+        if not isinstance(parent, TreeItem):
+            msg = 'Parent\'s type is {0}, but must be TreeItem'.format(str(type(parent)))
+            raise TypeError(msg)
+        if not isinstance(data, list):
+            msg = 'data\'s type is {0}, but must be list'.format(str(type(data)))
+            raise TypeError(msg)
+        
+        for v in data:
+            if parent is self._rootItem and v['name'] == '.stignoreglobal': #additional ignore list may be needed
+                continue
+
+            ch = TreeItem([v['name'], None, None], v['isfolder'], parent)
+            parent.appendChild(ch)
+            if _isrecursive:
+                continue
+            
+            self._fillItemByDict(ch, v)
+            
+            if v['isfolder']:
+                self._setupModelData(v['content'], ch, _isrecursive=True)
+
     def updateSubSection(self, index, data):
         if not isinstance(index, QtCore.QModelIndex):
             raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
@@ -363,26 +370,10 @@ class TreeModel(QtCore.QAbstractItemModel):
         for ch in self.getItem(index)._childItems:
             for v in data: #TODO should be dict of dicts to avoid second for
                 if ch._itemData[0] == v['name']:
-                    ch._itemData = [
-                            v['name'], 
-                            v['size'] if ('size' in v and v['size'] != 0) else None, 
-                            v['modified'] if 'modified' in v else None,
-                        ]
-                    ignored = v['ignored'] if 'ignored' in v else True
-                    partial = v['partial'] if 'partial' in v else False
+                    self._fillItemByDict(ch, v)
                     if isparentchecked:
                         ch.setChanged()
                         self._addToChangedList(ch)
-                    ch.setCheckState( \
-                            QtCore.Qt.PartiallyChecked if partial else \
-                            QtCore.Qt.Checked if not ignored else \
-                            QtCore.Qt.Unchecked)
-                    if 'syncstate' in v:
-                        ch.setSyncState(v['syncstate'])
-                    elif partial or not ignored:
-                        ch.setSyncState(iprop.SyncState.syncing)
-                    else:
-                        ch.setSyncState(iprop.SyncState.ignored)
 
                     if v['isfolder'] and len(v['content']) != ch.childCount():
                         self.beginInsertRows(index, 0, len(v['content']));
