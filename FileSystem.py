@@ -55,7 +55,7 @@ class FileSystem:
             else:
                 item['type'] = iprop.Type.FILE.name
             item['size'] = fi.size()
-            item['modified'] = fi.fileTime(QtCore.QFileDevice.FileModificationTime)
+            item['modified'] = fi.lastModified()
             item['syncstate'] = iprop.SyncState.newlocal
             l.append(item)
 
