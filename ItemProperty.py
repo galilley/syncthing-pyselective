@@ -18,6 +18,7 @@ class Type(enum.Enum):
     # SyncThing aliases
     FILE_INFO_TYPE_FILE = 0
     FILE_INFO_TYPE_DIRECTORY = 1
+    FILE_INFO_TYPE_SYMLINK = 0  # consider symlinks as files
 
 
 class ItemProperty:
