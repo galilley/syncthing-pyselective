@@ -17,6 +17,7 @@ logger = logging.getLogger("PySel.TreeModel")
 
 # https://doc.qt.io/qt-5/qtwidgets-itemviews-simpletreemodel-example.html
 
+
 class TreeItem:
     def __init__(self, data = [], isfolder = False, parent = None):
         self._parentItem = parent
@@ -29,6 +30,7 @@ class TreeItem:
         self._initcheckstate = None
         self.syncstate = None
         self.isfolder = isfolder
+        self.isinvalid = False
 
     def appendChild(self, child):
         if isinstance(child, TreeItem):
@@ -48,7 +50,7 @@ class TreeItem:
 
     def childCount(self):
         return len(self._childItems)
-    
+
     def childNames(self):
         rv = []
         for ch in self._childItems:
@@ -107,9 +109,12 @@ class TreeItem:
 
     def isChanged(self):
         if self._changed:
-            #False if changed but returned back
+            # False if changed but returned back
             return True if self._initcheckstate != self._checkstate else False 
         return False
+
+    def setInvalid(self, v=True):
+        self.isinvalid = v
 
     def updateCheckState(self):
         '''
@@ -191,6 +196,10 @@ class TreeModel(QtCore.QAbstractItemModel):
                     return QtGui.QBrush(QtCore.Qt.red)
                 else:
                     pass
+
+        if role == QtCore.Qt.BackgroundRole:
+            if item.isinvalid:
+                return QtGui.QBrush(QtCore.Qt.darkRed)
 
         if role != QtCore.Qt.DisplayRole:
             return None
@@ -336,6 +345,8 @@ class TreeModel(QtCore.QAbstractItemModel):
             ch.setSyncState(iprop.SyncState.syncing)
         else:
             ch.setSyncState(iprop.SyncState.ignored)
+        if 'invalid' in v and not ignored:
+            ch.setInvalid(v['invalid'])
         return ch
 
     def _setupModelData(self, data, parent=None, _isrecursive=False):
