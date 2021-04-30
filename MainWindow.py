@@ -230,7 +230,8 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         logger.debug("Items: {}".format(l))
-        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
+        if self.tm.getItem(index).getSyncState() != iprop.SyncState.newlocal:
+            self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))
@@ -277,5 +278,9 @@ class MainWindow(QtWidgets.QMainWindow):
         
         logger.debug("Resulted ignores:\n{0}".format(ignorelist))
         return ignorelist
+
+    def contextMenuEvent(self, e):
+        logger.debug("Context menu event at position {}".format(e.pos()))
+        pass
 
 

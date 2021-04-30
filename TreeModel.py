@@ -101,6 +101,9 @@ class TreeItem:
             raise TypeError('State\'s type is {0}, but must be ItemProperty.SyncState'.format(str(type(v))))
         self.syncstate = v
 
+    def getSyncState(self):
+        return self.syncstate
+
     def setChanged(self):
         'In the model should be called *before* set actual state'
         if self._initcheckstate is None:
