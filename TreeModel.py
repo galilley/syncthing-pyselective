@@ -146,6 +146,15 @@ class TreeItem:
     def parentItem(self):
         return self._parentItem
 
+    def toDict(self):
+        item = {}
+        item['size'] = self._itemData[1]
+        item['modified'] = self._itemData[2].toString(QtCore.Qt.ISODate)
+        item['type'] = iprop.Type.DIRECTORY.name if self.isfolder \
+                            else iprop.Type.FILE.name
+        item['syncstate'] = self.syncstate.name
+        item['children'] = len(self._childItems)
+        return item
 
 
 class TreeModel(QtCore.QAbstractItemModel):

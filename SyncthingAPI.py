@@ -131,6 +131,10 @@ class SyncthingAPI:
                 rv['local']['partial'] = False
         return rv
 
+    def getFileInfoRaw(self, fid, fn):
+        'fn: file name with path relative to the parent folder'
+        return self._getRequest('db/file?folder={0}&file={1}'.format(fid, urllib.parse.quote(fn)))
+
     def getVersion(self):
         logger.debug("Try read syncthing version...")
         rv = self._getRequest('svc/report')['version']

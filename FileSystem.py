@@ -60,4 +60,3 @@ class FileSystem:
             item['syncstate'] = iprop.SyncState.newlocal
             l.append(item)
 
-
