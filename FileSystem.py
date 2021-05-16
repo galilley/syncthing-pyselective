@@ -38,16 +38,31 @@ class FileSystem:
         for item in l:
             if ('syncstate' not in item or \
                     item['syncstate'] is iprop.SyncState.unknown or \
-                    item['syncstate'] is iprop.SyncState.newlocal) and \
+                    item['syncstate'] is iprop.SyncState.newlocal or \
+                    (item['syncstate'] is iprop.SyncState.syncing and \
+                        iprop.Type[item['type']] is iprop.Type.DIRECTORY and \
+                        item['partial'])) and \
                     item['name'] in dl:
                 fi = QtCore.QFileInfo(d.filePath(item['name']))
                 if fi.isDir():
                     logger.debug("Update dir: {}".format(item['name']))
                     cil = QtCore.QDir(d.filePath(item['name'])).entryInfoList()
-                    cont = []
+                    if 'children' in item:
+                        cont = item['children']
+                    else:
+                        cont = []
                     for fic in cil:
                         if fic.fileName() == '.' or fic.fileName() == '..':
                             continue
+
+                        iscont = False
+                        for ch in cont:  # TODO dict of dicts to avoid for
+                            if ch['name'] == fic.fileName():
+                                iscont = True
+                                break
+                        if iscont:
+                            continue
+
                         cont.append({'name': fic.fileName(),
                                     'type':
                                         iprop.Type.DIRECTORY.name if fic.isDir() \
@@ -57,17 +72,21 @@ class FileSystem:
                     logger.debug("    Children: {}".format(cont))
                 else:
                     logger.debug("Update file: {}".format(item['name']))
-                item['size'] = fi.size()
-                item['modified'] = fi.lastModified()
-                item['syncstate'] = iprop.SyncState.newlocal
+                if item['syncstate'] is iprop.SyncState.unknown:
+                    item['size'] = fi.size()
+                    item['modified'] = fi.lastModified()
+                    item['syncstate'] = iprop.SyncState.newlocal
+
             elif 'syncstate' in item and \
                     (item['syncstate'] is iprop.SyncState.unknown or \
                     item['syncstate'] is iprop.SyncState.newlocal) and \
                     item['name'] not in dl:
                 itemstoremove.append(item)
 
+        # !CHECKME! remove new files only???
         for item in itemstoremove:
             l.remove(item)
+        del(itemstoremove)
 
         # add new files into list
         for fn in newfiles:
