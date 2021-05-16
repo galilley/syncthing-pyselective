@@ -31,9 +31,45 @@ class FileSystem:
 
         for val in l:
             if val['name'] in dl:
-                if 'syncstate' not in val or val['syncstate'] is not iprop.SyncState.unknown:
-                    newfiles.remove(val['name'])
+                newfiles.remove(val['name'])
 
+        # update existing items first
+        itemstoremove = []
+        for item in l:
+            if ('syncstate' not in item or \
+                    item['syncstate'] is iprop.SyncState.unknown or \
+                    item['syncstate'] is iprop.SyncState.newlocal) and \
+                    item['name'] in dl:
+                fi = QtCore.QFileInfo(d.filePath(item['name']))
+                if fi.isDir():
+                    logger.debug("Update dir: {}".format(item['name']))
+                    cil = QtCore.QDir(d.filePath(item['name'])).entryInfoList()
+                    cont = []
+                    for fic in cil:
+                        if fic.fileName() == '.' or fic.fileName() == '..':
+                            continue
+                        cont.append({'name': fic.fileName(),
+                                    'type':
+                                        iprop.Type.DIRECTORY.name if fic.isDir() \
+                                            else iprop.Type.FILE.name,
+                                    'syncstate': iprop.SyncState.unknown})
+                    item['children'] = cont
+                    logger.debug("    Children: {}".format(cont))
+                else:
+                    logger.debug("Update file: {}".format(item['name']))
+                item['size'] = fi.size()
+                item['modified'] = fi.lastModified()
+                item['syncstate'] = iprop.SyncState.newlocal
+            elif 'syncstate' in item and \
+                    (item['syncstate'] is iprop.SyncState.unknown or \
+                    item['syncstate'] is iprop.SyncState.newlocal) and \
+                    item['name'] not in dl:
+                itemstoremove.append(item)
+
+        for item in itemstoremove:
+            l.remove(item)
+
+        # add new files into list
         for fn in newfiles:
             fi = QtCore.QFileInfo(d.filePath(fn))
             item = {'name': fn}

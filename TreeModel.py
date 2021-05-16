@@ -319,6 +319,10 @@ class TreeModel(QtCore.QAbstractItemModel):
     def fullItemName(self, item):
         if not isinstance(item, TreeItem):
             raise TypeError('Index\'s type is {0}, but must be TreeItem'.format(str(type(item))))
+
+        if item is self._rootItem:
+            return ""
+
         fin = item.data(0)
         item = item.parentItem()
         while item is not self._rootItem:
@@ -392,18 +396,30 @@ class TreeModel(QtCore.QAbstractItemModel):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
         isparentchecked = True if self.getItem(index).getCheckState() == QtCore.Qt.Checked else False
+        chnotfoundnames = self.getItem(index).childNames()[:]
         for ch in self.getItem(index)._childItems:
-            for v in data: #TODO should be dict of dicts to avoid second for
+            for v in data:  # TODO should be dict of dicts to avoid second for
                 if ch._itemData[0] == v['name']:
                     self._fillItemByDict(ch, v)
+                    chnotfoundnames.remove(ch._itemData[0])
                     if isparentchecked:
                         ch.setChanged()
                         self._addToChangedList(ch)
 
                     if iprop.Type[v['type']] is iprop.Type.DIRECTORY and len(v['children']) != ch.childCount():
-                        self.beginInsertRows(index, 0, len(v['children']));
+                        self.beginInsertRows(index, 0, len(v['children']))
                         self._setupModelData(v['children'], ch, _isrecursive=True)
-                        self.endInsertRows();
+                        self.endInsertRows()
+
+        # remove unnecessary items
+        chlist = self.getItem(index)._childItems  # result is the the link orig, use it later!
+        for nametorm in chnotfoundnames:
+            for i in range(len(chlist)):
+                if nametorm == chlist[i]._itemData[0]:
+                    self.beginRemoveRows(index, i, i+1)
+                    del chlist[i]
+                    self.endRemoveRows()
+                    break
 
         self.getItem(index).updateCheckState()
         super().dataChanged.emit(index, index, [QtCore.Qt.DisplayRole])

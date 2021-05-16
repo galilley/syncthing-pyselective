@@ -37,6 +37,7 @@ class SyncthingAPI:
             raise requests.RequestException('Forbidden, api token could be wrong')
         elif response.status_code == 404:
             logger.warning("No object in the index: {0}".format(suff))
+            return {}
         else:
             raise requests.RequestException('Wrong status code: '+ str(response.status_code) + " (" + suff + ")")
 
@@ -122,7 +123,7 @@ class SyncthingAPI:
     def getFileInfoExtended(self, fid, fn):
         'fn: file name with path relative to the parent folder'
         rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid, urllib.parse.quote(fn)))
-        if (rv['local']['type'] == 'DIRECTORY' or rv['local']['type'] == 1):
+        if len(rv) > 0 and (rv['local']['type'] == 'DIRECTORY' or rv['local']['type'] == 1):
             if ("!/" + fn) in self._ignoreSelectiveList:
                 rv['local']['ignore'] = False
             if ("/" + fn + "/**") in self._ignoreSelectiveList:

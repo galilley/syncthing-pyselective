@@ -2,6 +2,7 @@
 
 import os
 import json
+import shutil
 
 try:
     from PySide2 import QtCore
@@ -60,6 +61,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cm = QtWidgets.QMenu(self)
         infoAct = self.cm.addAction("Info")
         infoAct.triggered.connect(self.actInfo)
+        self.rmAct = self.cm.addAction("Remove")
+        self.rmAct.setEnabled(False)
+        self.rmAct.triggered.connect(self.actRemove)
 
         pb = QtWidgets.QPushButton("Get file tree", central_widget)
         pb.clicked.connect(self.btGetClicked)
@@ -114,6 +118,8 @@ class MainWindow(QtWidgets.QMainWindow):
             path = path + '/'
         for v in l:
             extd = self.syncapi.getFileInfoExtended( fid, path+v['name'])
+            if len(extd) == 0:  # there is no such file in database
+                continue
             v['size'] = extd['global']['size']
             v['modified'] = QtCore.QDateTime.fromString( extd['global']['modified'], self.df)
             v['ignored'] = extd['local']['ignored']
@@ -148,11 +154,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     v['ignored'] = False
                     v['partial'] = True
 
-            if 'syncstate' in v:
-                if not v['ignored'] or ('partial' in v and v['partial']):
-                    v['syncstate'] = iprop.SyncState.syncing
-                else:
-                    v['syncstate'] = iprop.SyncState.ignored
+
+            if not v['ignored'] or ('partial' in v and v['partial']):
+                v['syncstate'] = iprop.SyncState.syncing
+            else:
+                v['syncstate'] = iprop.SyncState.ignored
 
     def btGetClicked(self):
         self.setCursor(QtCore.Qt.WaitCursor)
@@ -222,8 +228,11 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Folder with fid {0} selected".format(fid))
         logger.info("Path is {}".format(self.foldsdict[fid]['path']))
         l = self.syncapi.browseFolderPartial(fid)
+        logger.debug("Items: {}".format(l))
         self.extendFileInfo(self.currentfid, l)
+        logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, self.foldsdict[fid]['path'])
+        logger.debug("Extended and local items: {}".format(l))
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
         self.tv.resizeColumnToContents(0)
@@ -234,12 +243,12 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         logger.debug("Items: {}".format(l))
-        if self.tm.getItem(index).getSyncState() != iprop.SyncState.newlocal:
-            self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
+        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))
             ))
+        logger.debug("Extended and local items: {}".format(l))
         self.tm.updateSubSection(index, l)
         self.unsetCursor()
 
@@ -286,19 +295,40 @@ class MainWindow(QtWidgets.QMainWindow):
     def contextMenuEvent(self, e):
         logger.debug("Context menu event at position {} with {} selected rows".format(e.pos(), len(self.tv.selectionModel().selectedRows())))
         if len(self.tv.selectionModel().selectedRows()) > 0:
+            item = self.tm.getItem(self.tv.selectionModel().currentIndex())
+            if item.getSyncState() == iprop.SyncState.newlocal or \
+                    item.getSyncState() == iprop.SyncState.conflict:
+                self.rmAct.setEnabled(True)
+            else:
+                self.rmAct.setEnabled(False)
             self.cm.popup(e.globalPos())
 
     def actInfo(self):
         'returns file info json string'
         item = self.tm.getItem(self.tv.selectionModel().currentIndex())
         path = self.tm.fullItemName(item)
-        if item.getSyncState() != iprop.SyncState.newlocal:
-            d = self.syncapi.getFileInfoExtended( self.currentfid, path)
-        else:
-            d = item.toDict()
-        s = json.dumps(d, indent=4)
+        d1 = self.syncapi.getFileInfoExtended( self.currentfid, path)
+        d2 = item.toDict()
+        s1 = json.dumps(d1, indent=4)
+        s2 = json.dumps(d2, indent=4)
         msgBox = QtWidgets.QMessageBox()
         msgBox.setWindowTitle("File info")
         msgBox.setText(path)
-        msgBox.setInformativeText(s)
+        msgBox.setInformativeText("Database:\n{}\n\nLocal:\n{}".format(s1, s2))
         msgBox.exec()
+
+    def actRemove(self):
+        'remove selected path completely'
+        index = self.tv.selectionModel().currentIndex()
+        item = self.tm.getItem(index)
+        path = self.tm.fullItemName(item)
+        path = os.path.join( self.foldsdict[self.currentfid]['path'], path)
+        logger.debug("Remove the path {}".format(path))
+        try:
+            if os.path.isfile(path):
+                os.remove(path)
+            else:
+                shutil.rmtree(path)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Remove path error", "Path: {}\n\nCode:{}".format(path, e))
+        self.updateSectionInfo(self.tm.parent(index))
