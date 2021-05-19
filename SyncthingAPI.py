@@ -146,3 +146,7 @@ class SyncthingAPI:
     def verStr2Num(self, s):
         l = s.replace("v", "").split(".")
         return (int(l[0])*100 + int(l[1]))*100 + int(l[2])
+
+    def clearCache(self):
+        self.getIgnoreList.cache_clear()
+        self.getFileInfoExtended.cache_clear()

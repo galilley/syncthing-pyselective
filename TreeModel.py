@@ -51,6 +51,13 @@ class TreeItem:
     def childCount(self):
         return len(self._childItems)
 
+    def childRemoteCount(self):
+        loccnt = 0
+        for ch in self._childItems:
+            if ch.syncstate is iprop.SyncState.newlocal:
+                loccnt += 1
+        return len(self._childItems) - loccnt
+
     def childNames(self):
         rv = []
         for ch in self._childItems:
@@ -128,11 +135,11 @@ class TreeItem:
             self.setCheckState(QtCore.Qt.Unchecked)
             return True
         
-        elif self.childCount() != self._checkedItemsCount:
+        elif self.childRemoteCount() != self._checkedItemsCount:
             self.setCheckState(QtCore.Qt.PartiallyChecked)
             return True
 
-        elif self.childCount() == self._checkedItemsCount:
+        elif self.childRemoteCount() == self._checkedItemsCount:
             self.setCheckState(QtCore.Qt.Checked)
             return True
 
@@ -206,6 +213,8 @@ class TreeModel(QtCore.QAbstractItemModel):
                     return QtGui.QBrush(QtCore.Qt.gray)
                 elif item.syncstate is iprop.SyncState.conflict:
                     return QtGui.QBrush(QtCore.Qt.red)
+                elif item.syncstate is iprop.SyncState.exists:
+                    return QtGui.QBrush(QtCore.Qt.blue)
                 else:
                     pass
 
@@ -366,6 +375,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         return ch
 
     def _setupModelData(self, data, parent=None, _isrecursive=False):
+        logger.debug("_setupModelData _isrecursive {}".format(_isrecursive))
         if parent is None:
             parent = self._rootItem
         if not isinstance(parent, TreeItem):
@@ -390,18 +400,23 @@ class TreeModel(QtCore.QAbstractItemModel):
                 self._setupModelData(v['children'], ch, _isrecursive=True)
 
     def updateSubSection(self, index, data):
+        logger.debug("updateSubSection at the row {}".format(index.row()))
         if not isinstance(index, QtCore.QModelIndex):
             raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
         if not isinstance(data, list):
             raise TypeError('data\'s type is {0}, but must be list'.format(str(type(data))))
         
         isparentchecked = True if self.getItem(index).getCheckState() == QtCore.Qt.Checked else False
+        # use names with string type as python cannot compare items directly
         chnotfoundnames = self.getItem(index).childNames()[:]
+        # works well as data does not const complex objects
+        newdata = data[:]
         for ch in self.getItem(index)._childItems:
             for v in data:  # TODO should be dict of dicts to avoid second for
                 if ch._itemData[0] == v['name']:
                     self._fillItemByDict(ch, v)
                     chnotfoundnames.remove(ch._itemData[0])
+                    newdata.remove(v)
                     if isparentchecked:
                         ch.setChanged()
                         self._addToChangedList(ch)
@@ -421,6 +436,12 @@ class TreeModel(QtCore.QAbstractItemModel):
                     self.endRemoveRows()
                     break
 
+        # add new items
+        self.beginInsertRows(index, 0, len(newdata))
+        self._setupModelData(newdata, self.getItem(index))
+        self.endInsertRows()
+
+        # update view
         self.getItem(index).updateCheckState()
         super().dataChanged.emit(index, index, [QtCore.Qt.DisplayRole])
         

@@ -164,6 +164,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCursor(QtCore.Qt.WaitCursor)
         logger.info("Button get clicked")
         self.lver.setText(self.syncapi.getVersion())
+        self.syncapi.clearCache()
         d = self.syncapi.getFoldersDict()
         self.foldsdict = d
         self.cbfolder.clear()
@@ -267,24 +268,28 @@ class MainWindow(QtWidgets.QMainWindow):
             if (v + '/**') in ignorelist:
                 ignorelist.remove(v + '/**')
             # remove subitems if parent is not partially checked
+            # add / to be sure that compare with subdirs
             if (v in checkedlist) or (v not in partiallist):
                 for i in ignorelist[:]:
-                    if (i.startswith(v) and i != v) or i.startswith('!' + v):
+                    if (i.startswith(v + '/') and i != v) or i.startswith('!' + v + '/'):
                         ignorelist.remove(i)
                 for c in checkedlist[:]:
-                    if (c.startswith(v) and c != v) or c.startswith('!' + v):
+                    if (c.startswith(v + '/') and c != v) or c.startswith('!' + v + '/'):
                         checkedlist.remove(c)
+        logger.debug("Result of clean:\n{0}".format(ignorelist))
 
         # exclude item from ignore if checked
         for v in changedlist:
             if v in checkedlist:
                 ignorelist.insert(0, '!' + v)
+        logger.debug("Result of exclude:\n{0}".format(ignorelist))
 
         # hack to sync parent folder, seems could be skipped for versions above 1.5
         for v in changedlist:
             if v in partiallist:
                 ignorelist.append(v + '/**')
                 ignorelist.append('!' + v)
+        logger.debug("Result of hack:\n{0}".format(ignorelist))
 
         while ignorelist.count(''):
             ignorelist.remove('')
@@ -297,7 +302,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(self.tv.selectionModel().selectedRows()) > 0:
             item = self.tm.getItem(self.tv.selectionModel().currentIndex())
             if item.getSyncState() == iprop.SyncState.newlocal or \
-                    item.getSyncState() == iprop.SyncState.conflict:
+                    item.getSyncState() == iprop.SyncState.conflict or \
+                    item.getSyncState() == iprop.SyncState.exists:
                 self.rmAct.setEnabled(True)
             else:
                 self.rmAct.setEnabled(False)

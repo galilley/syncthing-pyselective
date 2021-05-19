@@ -16,6 +16,14 @@ class FileSystem:
         pass
 
     def extendByLocal(self, l, path):
+        '''
+        There are four cases for extension of remote file tree:
+            1. none - 'syncstate' = syncing
+            2. new local - file exists locally and is missing remotely (previous state is unknown)
+            3. conflict - local file differs from a remote
+            4. exists -  local file is the same as remote
+        Besides the function lockup the children of the each item
+        '''
         logger.debug("extendByLocal path: {}".format(path))
         d = QtCore.QDir(path)
         # d.setFilter(QtCore.QDir.NoDotAndDotDot)
@@ -29,13 +37,15 @@ class FileSystem:
 
         newfiles = dl[:]
 
+        # looking for new local files, works only for the root directory
+        # as further all new files has unknown syncstats
         for val in l:
             if val['name'] in dl:
                 newfiles.remove(val['name'])
 
-        # update existing items first
         itemstoremove = []
         for item in l:
+            # update existing items
             if ('syncstate' not in item or \
                     item['syncstate'] is iprop.SyncState.unknown or \
                     item['syncstate'] is iprop.SyncState.newlocal or \
@@ -73,22 +83,37 @@ class FileSystem:
                 else:
                     logger.debug("Update file: {}".format(item['name']))
                 if item['syncstate'] is iprop.SyncState.unknown:
-                    item['size'] = fi.size()
+                    item['size'] = int(fi.size())
                     item['modified'] = fi.lastModified()
                     item['syncstate'] = iprop.SyncState.newlocal
 
+            # check files ignored remotely but exists locally
+            elif 'syncstate' in item and \
+                    item['syncstate'] is iprop.SyncState.ignored and \
+                    item['name'] in dl:
+                fi = QtCore.QFileInfo(d.filePath(item['name']))
+                if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
+                    item['syncstate'] = iprop.SyncState.exists
+                elif item['size'] == fi.size() and \
+                        item['modified'].secsTo(fi.lastModified()) == 0:
+                    item['syncstate'] = iprop.SyncState.exists
+                else:
+                    item['syncstate'] = iprop.SyncState.conflict
+                    logger.debug("item {} considered as conflicted:\n\t{} != {} or {} != 0".format(item['name'], item['size'], fi.size(), item['modified'].secsTo(fi.lastModified())))
+
+            # fill list of locally removed files
             elif 'syncstate' in item and \
                     (item['syncstate'] is iprop.SyncState.unknown or \
                     item['syncstate'] is iprop.SyncState.newlocal) and \
                     item['name'] not in dl:
                 itemstoremove.append(item)
 
-        # !CHECKME! remove new files only???
+        # remove removed files from the list
         for item in itemstoremove:
             l.remove(item)
         del(itemstoremove)
 
-        # add new files into list
+        # add new files into the list
         for fn in newfiles:
             fi = QtCore.QFileInfo(d.filePath(fn))
             item = {'name': fn}
@@ -110,7 +135,7 @@ class FileSystem:
             else:
                 logger.debug("New file: {}".format(fn))
                 item['type'] = iprop.Type.FILE.name
-            item['size'] = fi.size()
+            item['size'] = int(fi.size())
             item['modified'] = fi.lastModified()
             item['syncstate'] = iprop.SyncState.newlocal
             l.append(item)
