@@ -126,10 +126,12 @@ class SyncthingAPI:
         if len(rv) > 0 and (iprop.Type[rv['local']['type']] is iprop.Type.DIRECTORY or rv['local']['type'] == 1):
             if ("!/" + fn) in self._ignoreSelectiveList:
                 rv['local']['ignore'] = False
-            if ("/" + fn + "/**") in self._ignoreSelectiveList:
-                rv['local']['partial'] = True
-            else:
-                rv['local']['partial'] = False
+            ispartial = False
+            for ign in self._ignoreSelectiveList:
+                if ign.startswith("!/" + fn + "/"):
+                    ispartial = True
+                    break
+            rv['local']['partial'] = ispartial
         return rv
 
     def getFileInfoRaw(self, fid, fn):

@@ -10,6 +10,7 @@ class SyncState(enum.Enum):
     newlocal = 2
     conflict = 3
     exists = 4
+    globalignore = 5
 
 
 class Type(enum.Enum):

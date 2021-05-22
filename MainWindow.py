@@ -154,7 +154,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     v['ignored'] = False
                     v['partial'] = True
 
-
             if not v['ignored'] or ('partial' in v and v['partial']):
                 v['syncstate'] = iprop.SyncState.syncing
             else:
@@ -247,8 +246,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
-            self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))
-            ))
+            self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
+            self.tm.getItem(index).getCheckState())
         logger.debug("Extended and local items: {}".format(l))
         self.tm.updateSubSection(index, l)
         self.unsetCursor()

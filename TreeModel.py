@@ -51,10 +51,10 @@ class TreeItem:
     def childCount(self):
         return len(self._childItems)
 
-    def childRemoteCount(self):
+    def childAvailCount(self):
         loccnt = 0
         for ch in self._childItems:
-            if ch.syncstate is iprop.SyncState.newlocal:
+            if ch.syncstate is iprop.SyncState.globalignore:
                 loccnt += 1
         return len(self._childItems) - loccnt
 
@@ -135,11 +135,11 @@ class TreeItem:
             self.setCheckState(QtCore.Qt.Unchecked)
             return True
         
-        elif self.childRemoteCount() != self._checkedItemsCount:
+        elif self.childAvailCount() != self._checkedItemsCount:
             self.setCheckState(QtCore.Qt.PartiallyChecked)
             return True
 
-        elif self.childRemoteCount() == self._checkedItemsCount:
+        elif self.childAvailCount() == self._checkedItemsCount:
             self.setCheckState(QtCore.Qt.Checked)
             return True
 
@@ -210,11 +210,13 @@ class TreeModel(QtCore.QAbstractItemModel):
                 if item.syncstate is iprop.SyncState.newlocal:
                     return QtGui.QBrush(QtCore.Qt.darkGreen)
                 elif item.syncstate is iprop.SyncState.ignored:
-                    return QtGui.QBrush(QtCore.Qt.gray)
+                    return QtGui.QBrush(QtCore.Qt.darkGray)
                 elif item.syncstate is iprop.SyncState.conflict:
                     return QtGui.QBrush(QtCore.Qt.red)
                 elif item.syncstate is iprop.SyncState.exists:
                     return QtGui.QBrush(QtCore.Qt.blue)
+                elif item.syncstate is iprop.SyncState.globalignore:
+                    return QtGui.QBrush(QtGui.QColor(170, 170, 0))
                 else:
                     pass
 
@@ -224,9 +226,9 @@ class TreeModel(QtCore.QAbstractItemModel):
 
         if role != QtCore.Qt.DisplayRole:
             return None
-        
+
         return item.data(index.column())
-    
+
     def setData(self, index, value, role = QtCore.Qt.EditRole):
         logger.debug("setData value {}".format(value))
         if index.column() == 0:
@@ -267,8 +269,11 @@ class TreeModel(QtCore.QAbstractItemModel):
         # Qt::ItemIsUserTristate TODO for dirs
 
         rv = super().flags(index)
-        if index.column() == 0:
+        item = index.internalPointer()
+        # everything can be checked except items ignored globally as we do not in charge of them
+        if index.column() == 0 and item.syncstate is not iprop.SyncState.globalignore:
             rv |= QtCore.Qt.ItemIsUserCheckable
+
         return rv
 
     def headerData(self, section, orientation, role = QtCore.Qt.DisplayRole):
