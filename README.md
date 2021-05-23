@@ -1,12 +1,7 @@
 # Syncthing-PySelective
-Third-party app to realize selective sync in Syncthing. It gives minimalist GUI to select which folders, subfolders and files you want to sync with a local machine.
+Third-party app to realize selective sync in Syncthing. It gives minimalist GUI to select which folders, subfolders and files you want to sync with a local machine and which one you would like to add for syncing.
 
-It reads the global folder tree and fill tree view with checkboxes. Your choice is transformed to new list of ignores and submitted into Syncthing. Please be careful especially with the firsts versions as it could damage your predefined .stignore.
-
-## Limitations
-New items in partially synced folders will *not* send to remote host just because local folders are not discover yet.
-Only folders and files that already exist remotely can be synced with your local copy.
-However, new files created in wholly synced folders will send to remote host. 
+It reads the global and local folder trees and fill tree view with checkboxes. Your choice is transformed to new list of ignores and submitted into Syncthing. Please be careful especially with the firsts versions as it could damage your predefined .stignore.
 
 ## How to use
 1. Syncthing app should be started and listen default port.
