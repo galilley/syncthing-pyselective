@@ -48,8 +48,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cbfolder.currentIndexChanged[int].connect(self.folderSelected)
         grid_layout.addWidget( self.cbfolder, 1, 0, 1, 2)
 
+        grid_layout.addWidget( QtWidgets.QLabel(\
+            "Legend: syncing, <b><font color='darkGray'>ignored</font>, " + \
+            "<font color='darkGreen'>newlocal</font>, " + \
+            "<font color='red'>conflict</font>, " + \
+            "<font color='blue'>exists</font>, " + \
+            "<font color='#aaaa00'>globalignore</font></b>", self), 2, 0, 1, 2)
+
         self.tv = QtWidgets.QTreeView(central_widget)
-        grid_layout.addWidget( self.tv, 2, 0, 1, 2)
+        grid_layout.addWidget( self.tv, 3, 0, 1, 2)
         self.tm = TreeModel(parent=self.tv)
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
@@ -67,24 +74,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         pb = QtWidgets.QPushButton("Get file tree", central_widget)
         pb.clicked.connect(self.btGetClicked)
-        grid_layout.addWidget( pb, 3, 0, 1, 2)
+        grid_layout.addWidget( pb, 4, 0, 1, 2)
 
         pb = QtWidgets.QPushButton("Submit changes", central_widget)
         pb.clicked.connect(self.btSubmitClicked)
-        grid_layout.addWidget( pb, 4, 0, 1, 2)
+        grid_layout.addWidget( pb, 5, 0, 1, 2)
 
         lapi = QtWidgets.QLabel("API Key:", self)
-        grid_layout.addWidget(lapi, 5, 0, 1, 1)
+        grid_layout.addWidget(lapi, 6, 0, 1, 1)
         self.leKey = QtWidgets.QLineEdit(central_widget)
         self.leKey.editingFinished.connect(self.leSaveKeyAPI)
         if self._qtver >= 0x050C00: # >= 5.12
             self.leKey.inputRejected.connect(self.leRestoreKeyAPI)
-        grid_layout.addWidget( self.leKey, 5, 1, 1, 1)
+        grid_layout.addWidget( self.leKey, 6, 1, 1, 1)
 
         labelver = QtWidgets.QLabel("Syncthing version:", self)
-        grid_layout.addWidget(labelver, 6, 0, 1, 1)
+        grid_layout.addWidget(labelver, 7, 0, 1, 1)
         self.lver = QtWidgets.QLabel("None", self)
-        grid_layout.addWidget(self.lver, 6, 1, 1, 1)
+        grid_layout.addWidget(self.lver, 7, 1, 1, 1)
 
         #self.te = QtWidgets.QTextEdit(central_widget)
         #grid_layout.addWidget( self.te, 5, 0)
@@ -310,7 +317,8 @@ class MainWindow(QtWidgets.QMainWindow):
             item = self.tm.getItem(self.tv.selectionModel().currentIndex())
             if item.getSyncState() == iprop.SyncState.newlocal or \
                     item.getSyncState() == iprop.SyncState.conflict or \
-                    item.getSyncState() == iprop.SyncState.exists:
+                    item.getSyncState() == iprop.SyncState.exists or \
+                    item.getSyncState() == iprop.SyncState.globalignore:
                 self.rmAct.setEnabled(True)
             else:
                 self.rmAct.setEnabled(False)
@@ -343,5 +351,5 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 shutil.rmtree(path)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Remove path error", "Path: {}\n\nCode:{}".format(path, e))
+            QtWidgets.QMessageBox.critical(self, "Remove path error", "Path: {}\n\n{}".format(path, e))
         self.updateSectionInfo(self.tm.parent(index))
