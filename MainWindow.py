@@ -112,7 +112,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.df = QtCore.Qt.ISODate
             logger.warning("Your Qt version is too old, date conversion could be incomplete")
 
-    def extendFileInfo(self, fid, l, path = ''):
+    def extendFileInfo(self, fid, l, path = '', pstate=QtCore.Qt.Unchecked):
         contents = self.syncapi.browseFolderPartial(fid, path, lev=1)
         if path != '' and path[-1] != '/':
             path = path + '/'
@@ -156,6 +156,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if not v['ignored'] or ('partial' in v and v['partial']):
                 v['syncstate'] = iprop.SyncState.syncing
+            elif pstate == QtCore.Qt.Checked:
+                # item ignored but the parent does not
+                # so it must be in global ignore patterns
+                v['syncstate'] = iprop.SyncState.globalignore
             else:
                 v['syncstate'] = iprop.SyncState.ignored
 
@@ -243,7 +247,8 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         logger.debug("Items: {}".format(l))
-        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)))
+        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)),
+            self.tm.getItem(index).getCheckState())
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
@@ -284,11 +289,14 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Result of exclude:\n{0}".format(ignorelist))
 
         # hack to sync parent folder, seems could be skipped for versions above 1.5
-        for v in changedlist:
-            if v in partiallist:
-                ignorelist.append(v + '/**')
-                ignorelist.append('!' + v)
-        logger.debug("Result of hack:\n{0}".format(ignorelist))
+        if self.syncapi.api_version < self.syncapi.verStr2Num("1.6.0"):
+            for v in changedlist:
+                if v in partiallist:
+                    ignorelist.append(v + '/**')
+                    ignorelist.append('!' + v)
+            logger.debug("Result of hack:\n{0}".format(ignorelist))
+
+        # TODO remove items ignored globally
 
         while ignorelist.count(''):
             ignorelist.remove('')
