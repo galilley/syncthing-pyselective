@@ -125,11 +125,15 @@ class SyncthingAPI:
         rv = self._getRequest('db/file?folder={0}&file={1}'.format(fid, urllib.parse.quote(fn)))
         if len(rv) > 0 and (iprop.Type[rv['local']['type']] is iprop.Type.DIRECTORY or rv['local']['type'] == 1):
             if ("!/" + fn) in self._ignoreSelectiveList:
-                rv['local']['ignore'] = False
+                rv['local']['ignored'] = False
+            else: # assume ignored by default as it is not in the list
+                rv['local']['ignored'] = True
             ispartial = False
             for ign in self._ignoreSelectiveList:
                 if ign.startswith("!/" + fn + "/"):
                     ispartial = True
+                    # there is some content inside, so it can not be ignored
+                    rv['local']['ignored'] = False
                     break
             rv['local']['partial'] = ispartial
         return rv

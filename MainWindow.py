@@ -49,7 +49,7 @@ class MainWindow(QtWidgets.QMainWindow):
         grid_layout.addWidget( self.cbfolder, 1, 0, 1, 2)
 
         grid_layout.addWidget( QtWidgets.QLabel(\
-            "Legend: syncing, <b><font color='darkGray'>ignored</font>, " + \
+            "Legend: <b>syncing, <font color='darkGray'>ignored</font>, " + \
             "<font color='darkGreen'>newlocal</font>, " + \
             "<font color='red'>conflict</font>, " + \
             "<font color='blue'>exists</font>, " + \
@@ -145,6 +145,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
             elif 'partial' in extd['local']:
                 v['partial'] = extd['local']['partial']
+            # seems the following case do not work at all as 'partial' exists forever
             else: #do not believe 'ignore', check content
                 selcnt = 0
                 for v2 in v['children']:
