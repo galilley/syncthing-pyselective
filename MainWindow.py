@@ -40,23 +40,38 @@ class MainWindow(QtWidgets.QMainWindow):
 
         grid_layout = QtWidgets.QGridLayout(central_widget)
 
-        title = QtWidgets.QLabel("Choise the folder:", self)
-        title.setAlignment(QtCore.Qt.AlignCenter)
-        grid_layout.addWidget(title, 0, 0, 1, 2)
+        widget = QtWidgets.QLabel("Choise the folder:", self)
+        widget.setAlignment(QtCore.Qt.AlignCenter)
+        grid_layout.addWidget(widget, 0, 0, 1, 2)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
 
-        self.cbfolder = QtWidgets.QComboBox(central_widget)
-        self.cbfolder.currentIndexChanged[int].connect(self.folderSelected)
-        grid_layout.addWidget( self.cbfolder, 1, 0, 1, 2)
+        widget = QtWidgets.QComboBox(central_widget)
+        widget.currentIndexChanged[int].connect(self.folderSelected)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
+        self.cbfolder = widget
 
-        grid_layout.addWidget( QtWidgets.QLabel(\
+        widget = QtWidgets.QLabel(\
             "Legend: <b>syncing, <font color='darkGray'>ignored</font>, " + \
             "<font color='darkGreen'>newlocal</font>, " + \
             "<font color='red'>conflict</font>, " + \
             "<font color='blue'>exists</font>, " + \
-            "<font color='#aaaa00'>globalignore</font></b>", self), 2, 0, 1, 2)
+            "<font color='#aaaa00'>globalignore</font></b>", self)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
 
-        self.tv = QtWidgets.QTreeView(central_widget)
-        grid_layout.addWidget( self.tv, 3, 0, 1, 2)
+        widget = QtWidgets.QTreeView(central_widget)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
+        self.tv = widget
         self.tm = TreeModel(parent=self.tv)
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
@@ -72,26 +87,49 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rmAct.setEnabled(False)
         self.rmAct.triggered.connect(self.actRemove)
 
-        pb = QtWidgets.QPushButton("Get file tree", central_widget)
-        pb.clicked.connect(self.btGetClicked)
-        grid_layout.addWidget( pb, 4, 0, 1, 2)
+        widget = QtWidgets.QPushButton("Get file tree", central_widget)
+        widget.clicked.connect(self.btGetClicked)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
 
-        pb = QtWidgets.QPushButton("Submit changes", central_widget)
-        pb.clicked.connect(self.btSubmitClicked)
-        grid_layout.addWidget( pb, 5, 0, 1, 2)
+        widget = QtWidgets.QPushButton("Submit changes", central_widget)
+        widget.clicked.connect(self.btSubmitClicked)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
 
-        lapi = QtWidgets.QLabel("API Key:", self)
-        grid_layout.addWidget(lapi, 6, 0, 1, 1)
+        widget = QtWidgets.QLabel("URL:", self)
+        grid_layout.addWidget( widget, row+1, column, 1, 1)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
+        self.leURL = QtWidgets.QLineEdit(central_widget)
+        self.leURL.editingFinished.connect(self.leSaveURL)
+        if self._qtver >= 0x050C00: # >= 5.12
+            self.leURL.inputRejected.connect(self.leRestoreURL)
+        grid_layout.addWidget( self.leURL, row, column+1, cols, rows)
+
+        widget = QtWidgets.QLabel("API Key:", self)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
         self.leKey = QtWidgets.QLineEdit(central_widget)
         self.leKey.editingFinished.connect(self.leSaveKeyAPI)
         if self._qtver >= 0x050C00: # >= 5.12
             self.leKey.inputRejected.connect(self.leRestoreKeyAPI)
-        grid_layout.addWidget( self.leKey, 6, 1, 1, 1)
+        grid_layout.addWidget( self.leKey, row, column+1, cols, rows)
 
-        labelver = QtWidgets.QLabel("Syncthing version:", self)
-        grid_layout.addWidget(labelver, 7, 0, 1, 1)
+        widget = QtWidgets.QLabel("Syncthing version:", self)
+        grid_layout.addWidget( widget, row+1, column, cols, rows)
+        index = grid_layout.indexOf(widget)
+        row, column, cols, rows = grid_layout.getItemPosition(index)
+        logger.debug(index)
         self.lver = QtWidgets.QLabel("None", self)
-        grid_layout.addWidget(self.lver, 7, 1, 1, 1)
+        grid_layout.addWidget(self.lver, row, column+1, cols, rows)
 
         #self.te = QtWidgets.QTextEdit(central_widget)
         #grid_layout.addWidget( self.te, 5, 0)
@@ -109,9 +147,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.readSettings()
         settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
         settings.beginGroup("Syncthing");
+        self.leURL.setText( settings.value("apiurl", self.syncapi.api_url_base))
         self.leKey.setText( settings.value("apikey", "None"))
         settings.endGroup();
+        self.syncapi.api_url_base = self.leURL.text()
         self.syncapi.api_token = self.leKey.text()
+        self.syncapi.startSession()
         # try set date format
         try:
             self.df = QtCore.Qt.ISODateWithMs
@@ -174,14 +215,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def btGetClicked(self):
         self.setCursor(QtCore.Qt.WaitCursor)
         logger.info("Button get clicked")
-        self.lver.setText(self.syncapi.getVersion())
-        self.syncapi.clearCache()
-        d = self.syncapi.getFoldersDict()
-        self.foldsdict = d
-        self.cbfolder.clear()
-        for k in d.keys():
-            self.cbfolder.addItem(d[k]['label'], k)
-        self.unsetCursor()
+        try:
+            self.lver.setText(self.syncapi.getVersion())
+            self.syncapi.clearCache()
+            d = self.syncapi.getFoldersDict()
+            self.foldsdict = d
+            self.cbfolder.clear()
+            for k in d.keys():
+                self.cbfolder.addItem(d[k]['label'], k)
+        except Exception:
+            QtWidgets.QMessageBox.warning(self, "Connection error", "Wrong url or API key")
+        finally:
+            self.unsetCursor()
 
     def btSubmitClicked(self):
         self.setCursor(QtCore.Qt.WaitCursor)
@@ -219,11 +264,26 @@ class MainWindow(QtWidgets.QMainWindow):
         settings.setValue("apikey", self.leKey.text());
         settings.endGroup();
         self.syncapi.api_token = self.leKey.text()
+        self.syncapi.startSession()
 
     def leRestoreKeyAPI(self):
         settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
         settings.beginGroup("Syncthing");
         self.leKey.setText( settings.value("apikey", "None"))
+        settings.endGroup();
+
+    def leSaveURL(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("Syncthing");
+        settings.setValue("apiurl", self.leURL.text());
+        settings.endGroup();
+        self.syncapi.api_url_base = self.leURL.text()
+        self.syncapi.startSession()
+
+    def leRestoreURL(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
+        settings.beginGroup("Syncthing");
+        self.leURL.setText( settings.value("apiurl", "None"))
         settings.endGroup();
 
     def closeEvent(self, event):
