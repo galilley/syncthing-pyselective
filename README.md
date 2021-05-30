@@ -45,3 +45,10 @@ Python 3 and PyQt5 must be installed to run the program.
 ## About
 I've started this project for my personal use case but I believe it could be helpful both to other people right now and to the Syncthing project to introduce Next Gen Ignores feature in future. Please be free to contact me about your wishes and bug reports and do not judge strictly my code.
 
+## Roadmap
+ - Manual parsing stignore file to check global ignore patterns instead of making assumptions
+ - Add options dialog into the UI to move API key, URL, etc into.
+ - Human readable size column, assumtions about the size of folders by its context
+ - Applying templates to the .stignore in one click (quick first start)
+ - ...
+
