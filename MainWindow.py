@@ -297,6 +297,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Result of exclude:\n{0}".format(ignorelist))
 
         # hack to sync parent folder, seems could be skipped for versions above 1.5
+        # TODO: but it can be useful to keep dir partially sunced without selected items
         if self.syncapi.api_version < self.syncapi.verStr2Num("1.6.0"):
             for v in changedlist:
                 if v in partiallist:

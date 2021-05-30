@@ -126,15 +126,25 @@ class SyncthingAPI:
         if len(rv) > 0 and (iprop.Type[rv['local']['type']] is iprop.Type.DIRECTORY or rv['local']['type'] == 1):
             if ("!/" + fn) in self._ignoreSelectiveList:
                 rv['local']['ignored'] = False
+                if ("/" + fn + "/**") in self._ignoreSelectiveList:
+                    ispartial = True
+                else:
+                    ispartial = False
             else: # assume ignored by default as it is not in the list
                 rv['local']['ignored'] = True
-            ispartial = False
+                ispartial = False
+
             for ign in self._ignoreSelectiveList:
                 if ign.startswith("!/" + fn + "/"):
                     ispartial = True
                     # there is some content inside, so it can not be ignored
                     rv['local']['ignored'] = False
                     break
+                elif ("!/" + fn + "/").startswith(ign + "/") and \
+                        (ign[1:] + "/**") not in self._ignoreSelectiveList:
+                    # the parent is on the SelectiveList, so the item must be fully synced
+                    rv['local']['ignored'] = False
+                    ispartial = False
             rv['local']['partial'] = ispartial
         return rv
 
