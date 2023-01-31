@@ -58,10 +58,15 @@ class SyncthingAPI:
             # logger.debug("Response content: {}".format(response.content))
             return json.loads(response.content.decode('utf-8'))
         elif response.status_code == 403:
-            raise requests.RequestException('Forbidden, api token could be wrong')
+            raise requests.RequestException('Forbidden, api token can be wrong')
         elif response.status_code == 404:
             logger.info("No object in the index: {0}".format(suff))
             return {}
+        elif response.status_code == 500:
+            logger.info("Internal Server Error: {0} - {1}".format(
+                            suff, response.content.decode('utf-8')))
+            raise requests.RequestException("Internal Server Error: {0} - {1}".format(
+                            suff, response.content.decode('utf-8')))
         else:
             raise requests.RequestException('Wrong status code: '+ str(response.status_code) + " (" + suff + ")")
 
