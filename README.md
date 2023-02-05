@@ -51,5 +51,9 @@ I've started this project for my personal use case but I believe it could be hel
  - Human readable size column, assumtions about the size of folders by its context
  - Applying templates to the .stignore in one click (quick first start)
  - Hide all included (or hidden?) files in the tree
+ - Syncronization state of the folder
+ - Update item colors after changes submitted
+ - Folders can be partially checked directly
+ - Availabilily column
  - ...
 
