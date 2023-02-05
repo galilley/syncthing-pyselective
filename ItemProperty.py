@@ -11,6 +11,12 @@ class SyncState(enum.Enum):
     conflict = 3
     exists = 4
     globalignore = 5
+    partial = 6
+
+
+class SyncType(enum.Enum):
+    system = 0
+    user = 1
 
 
 class Type(enum.Enum):

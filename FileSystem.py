@@ -15,7 +15,7 @@ class FileSystem:
     def __init__(self):
         pass
 
-    def extendByLocal(self, l, path, pstate=QtCore.Qt.Unchecked):
+    def extendByLocal(self, l, path, psyncstate=iprop.SyncState.unknown):
         '''
         There are four cases for extension of remote file tree:
             1. none - 'syncstate' = syncing
@@ -49,9 +49,7 @@ class FileSystem:
             if ('syncstate' not in item or \
                     item['syncstate'] is iprop.SyncState.unknown or \
                     item['syncstate'] is iprop.SyncState.newlocal or \
-                    (item['syncstate'] is iprop.SyncState.syncing and \
-                        iprop.Type[item['type']] is iprop.Type.DIRECTORY and \
-                        item['partial'])) and \
+                    item['syncstate'] is iprop.SyncState.partial) and \
                     item['name'] in dl:
                 fi = QtCore.QFileInfo(d.filePath(item['name']))
                 if fi.isDir():
@@ -139,7 +137,7 @@ class FileSystem:
             item['modified'] = fi.lastModified()
             # parent checked but the file absents in the database
             # so, it is ignored globally by other patterns
-            if pstate == QtCore.Qt.Checked:
+            if psyncstate == iprop.SyncState.syncing:
                 item['syncstate'] = iprop.SyncState.globalignore
             else: # TODO, it can also be ignored globally in other states
                 item['syncstate'] = iprop.SyncState.newlocal

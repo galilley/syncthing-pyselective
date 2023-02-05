@@ -160,7 +160,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.df = QtCore.Qt.ISODate
             logger.warning("Your Qt version is too old, date conversion could be incomplete")
 
-    def extendFileInfo(self, fid, l, path = '', pstate=QtCore.Qt.Unchecked):
+    def extendFileInfo(self, fid, l, path = '', psyncstate=iprop.SyncState.unknown):
         contents = self.syncapi.browseFolderPartial(fid, path, lev=1)
         if path != '' and path[-1] != '/':
             path = path + '/'
@@ -203,9 +203,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     v['ignored'] = False
                     v['partial'] = True
 
-            if not v['ignored'] or ('partial' in v and v['partial']):
+            if 'partial' in v and v['partial']:
+                v['syncstate'] = iprop.SyncState.partial
+            elif not v['ignored']:
                 v['syncstate'] = iprop.SyncState.syncing
-            elif pstate == QtCore.Qt.Checked:
+            elif psyncstate == iprop.SyncState.syncing:
                 # item ignored but the parent does not
                 # so it must be in global ignore patterns
                 v['syncstate'] = iprop.SyncState.globalignore
@@ -316,11 +318,11 @@ class MainWindow(QtWidgets.QMainWindow):
         l = self.tm.rowNamesList(index)
         logger.debug("Items: {}".format(l))
         self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)),
-            self.tm.getItem(index).getCheckState())
+            self.tm.getItem(index).getSyncState())
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
-            self.tm.getItem(index).getCheckState())
+            self.tm.getItem(index).getSyncState())
         logger.debug("Extended and local items: {}".format(l))
         self.tm.updateSubSection(index, l)
         self.unsetCursor()
