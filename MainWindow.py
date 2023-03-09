@@ -345,6 +345,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tm.getItem(index).getSyncState())
         logger.debug("Extended and local items: {}".format(l))
         self.tm.updateSubSection(index, l)
+        self.tv.resizeColumnToContents(0)
         self.unsetCursor()
 
     def buildNewIgnoreList(self, changedlist, checkedlist, partiallist, ignorelist):
