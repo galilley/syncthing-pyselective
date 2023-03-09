@@ -230,10 +230,10 @@ class MainWindow(QtWidgets.QMainWindow):
             index = 0 if index < 0 else index
             self.cbfolder.setCurrentIndex(index)
             self.cbfolder.blockSignals(False)
-            self.folderSelected(index)
         except Exception:
             QtWidgets.QMessageBox.warning(self, "Connection error", "Wrong url or API key")
         finally:
+            self.folderSelected(index)
             self.unsetCursor()
 
     def btSubmitClicked(self):
@@ -311,6 +311,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.writeSettings()
         event.accept()
 
+    def updateDirSizes(self, l):
+        logger.debug("updateDirSizes: {}".format(l))
+        size = 0
+        for item in l:
+            if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
+                if 'children' in item.keys():
+                    item['size'] = self.updateDirSizes(item['children'])
+                    logger.debug("update size={} for {}".format(item['size'], item))
+                else:  # TODO mark as incomplete
+                    pass
+            if 'size' in item.keys():
+                size += item['size']
+            else:  # TODO mark as incomplete
+                pass
+        return size
+
     def folderSelected(self, index):
         if index < 0: #avoid signal from empty box
             return
@@ -326,6 +342,8 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, self.foldsdict[fid]['path'])
         logger.debug("Extended and local items: {}".format(l))
+        self.updateDirSizes(l)
+        logger.debug("Dir sizes updated")
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
         self.tv.resizeColumnToContents(0)
@@ -344,6 +362,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
             self.tm.getItem(index).getSyncState())
         logger.debug("Extended and local items: {}".format(l))
+        self.updateDirSizes(l)
+        logger.debug("Dir sizes updated")
         self.tm.updateSubSection(index, l)
         self.tv.resizeColumnToContents(0)
         self.unsetCursor()
