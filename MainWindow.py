@@ -222,9 +222,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.syncapi.clearCache()
             d = self.syncapi.getFoldersDict()
             self.foldsdict = d
+            self.cbfolder.blockSignals(True)
             self.cbfolder.clear()
             for k in d.keys():
                 self.cbfolder.addItem(d[k]['label'], k)
+            index = self.cbfolder.findText(self.leRestoreFolder())
+            index = 0 if index < 0 else index
+            self.cbfolder.setCurrentIndex(index)
+            self.cbfolder.blockSignals(False)
+            self.folderSelected(index)
         except Exception:
             QtWidgets.QMessageBox.warning(self, "Connection error", "Wrong url or API key")
         finally:
@@ -247,46 +253,59 @@ class MainWindow(QtWidgets.QMainWindow):
         self.unsetCursor()
 
     def writeSettings(self):
-        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
-        settings.beginGroup("MainWindow");
-        settings.setValue("size", self.size());
-        settings.setValue("pos", self.pos());
-        settings.endGroup();
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("MainWindow")
+        settings.setValue("size", self.size())
+        settings.setValue("pos", self.pos())
+        settings.endGroup()
 
     def readSettings(self):
-        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
-        settings.beginGroup("MainWindow");
-        self.resize(settings.value("size", QtCore.QSize(350, 350)));
-        self.move(settings.value("pos", QtCore.QPoint(200, 200)));
-        settings.endGroup();
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("MainWindow")
+        self.resize(settings.value("size", QtCore.QSize(350, 350)))
+        self.move(settings.value("pos", QtCore.QPoint(200, 200)))
+        settings.endGroup()
 
     def leSaveKeyAPI(self):
-        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
-        settings.beginGroup("Syncthing");
-        settings.setValue("apikey", self.leKey.text());
-        settings.endGroup();
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("Syncthing")
+        settings.setValue("apikey", self.leKey.text())
+        settings.endGroup()
         self.syncapi.api_token = self.leKey.text()
         self.syncapi.startSession()
 
     def leRestoreKeyAPI(self):
-        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
-        settings.beginGroup("Syncthing");
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("Syncthing")
         self.leKey.setText( settings.value("apikey", "None"))
-        settings.endGroup();
+        settings.endGroup()
 
     def leSaveURL(self):
-        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
-        settings.beginGroup("Syncthing");
-        settings.setValue("apiurl", self.leURL.text());
-        settings.endGroup();
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("Syncthing")
+        settings.setValue("apiurl", self.leURL.text())
+        settings.endGroup()
         self.syncapi.api_url_base = self.leURL.text()
         self.syncapi.startSession()
 
     def leRestoreURL(self):
-        settings = QtCore.QSettings("Syncthing-PySelective", "pysel");
-        settings.beginGroup("Syncthing");
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("Syncthing")
         self.leURL.setText( settings.value("apiurl", "None"))
-        settings.endGroup();
+        settings.endGroup()
+
+    def leSaveFolder(self, fname):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("Syncthing")
+        settings.setValue("folder", fname)
+        settings.endGroup()
+
+    def leRestoreFolder(self):
+        settings = QtCore.QSettings("Syncthing-PySelective", "pysel")
+        settings.beginGroup("Syncthing")
+        fname = settings.value("folder", "")
+        settings.endGroup()
+        return fname
 
     def closeEvent(self, event):
         self.writeSettings()
@@ -310,6 +329,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
         self.tv.resizeColumnToContents(0)
+        self.leSaveFolder(self.cbfolder.itemText(index))
         self.unsetCursor()
 
     def updateSectionInfo(self, index):
