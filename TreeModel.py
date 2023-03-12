@@ -26,10 +26,29 @@ class TreeItem:
         self._checkedItemsCount = 0
         self._checkedPartiallyCount = 0
         self._checkstate = QtCore.Qt.Unchecked
+        self._units = ["B", "KB", "MB", "GB", "TB", "PB"]
         self.syncstateuser = None
         self.syncstatesystem = None
         self.isfolder = isfolder
         self.isinvalid = False
+
+    def _formatSize(self, s):
+        if s is None or isinstance(s, str):
+            return s
+        outsize = s
+        unit = self._units[0]
+        for u in self._units:
+            if outsize < 1024:
+                unit = u
+                break
+            outsize /= 1024
+        if unit == self._units[0]:
+            return "{} {}".format(outsize, unit)
+        elif outsize < 10:
+            return "{:.2f} {}".format(outsize, unit)
+        elif outsize < 100:
+            return "{:.1f} {}".format(outsize, unit)
+        return "{} {}".format(round(outsize), unit)
 
     def appendChild(self, child):
         if isinstance(child, TreeItem):
@@ -76,6 +95,8 @@ class TreeItem:
     def data(self, column):
         if column < -len(self._itemData) or column >= len(self._itemData):
             return None
+        if column == 1:
+            return self._formatSize(self._itemData[column])
         return self._itemData[column]
 
     def setData(self, column, value):
