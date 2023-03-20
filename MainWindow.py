@@ -311,21 +311,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.writeSettings()
         event.accept()
 
-    def updateDirSizes(self, l):
-        logger.debug("updateDirSizes: {}".format(l))
+    def extendDirSizes(self, l):
+        logger.debug("extendDirSizes: {}".format(l))
         size = 0
+        completed = True
         for item in l:
             if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
                 if 'children' in item.keys():
-                    item['size'] = self.updateDirSizes(item['children'])
-                    logger.debug("update size={} for {}".format(item['size'], item))
-                else:  # TODO mark as incomplete
-                    pass
+                    item['extSize'] = self.extendDirSizes(item['children'])
+                    logger.debug("extend size={} for {}".format(item['extSize'], item))
+                else:
+                    completed = False
             if 'size' in item.keys():
-                size += item['size']
-            else:  # TODO mark as incomplete
-                pass
-        return size
+                if 'extSize' in item.keys():
+                    size += item['extSize']['value']
+                    completed *= item['extSize']['completed'] if 'completed' in item['extSize'].keys() else True
+                else:
+                    size += item['size']
+            else:
+                completed = False
+        return {"value":size, "completed":completed}
 
     def folderSelected(self, index):
         if index < 0: #avoid signal from empty box
@@ -342,7 +347,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, self.foldsdict[fid]['path'])
         logger.debug("Extended and local items: {}".format(l))
-        self.updateDirSizes(l)
+        self.extendDirSizes(l)
         logger.debug("Dir sizes updated")
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
@@ -362,7 +367,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
             self.tm.getItem(index).getSyncState())
         logger.debug("Extended and local items: {}".format(l))
-        self.updateDirSizes(l)
+        self.extendDirSizes(l)
         logger.debug("Dir sizes updated")
         self.tm.updateSubSection(index, l)
         self.tv.resizeColumnToContents(0)

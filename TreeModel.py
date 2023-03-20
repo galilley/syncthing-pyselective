@@ -33,9 +33,10 @@ class TreeItem:
         self.isinvalid = False
 
     def _formatSize(self, s):
-        if s is None or isinstance(s, str):
+        if s is None or s == {} or isinstance(s, str):
             return s
-        outsize = s
+        outsize = s['value']
+        pref = '>' if 'completed' in s.keys() and not s['completed'] else ''
         unit = self._units[0]
         for u in self._units:
             if outsize < 1024:
@@ -48,7 +49,7 @@ class TreeItem:
             return "{:.2f} {}".format(outsize, unit)
         elif outsize < 100:
             return "{:.1f} {}".format(outsize, unit)
-        return "{} {}".format(round(outsize), unit)
+        return "{}{} {}".format(pref, round(outsize), unit)
 
     def appendChild(self, child):
         if isinstance(child, TreeItem):
@@ -425,9 +426,15 @@ class TreeModel(QtCore.QAbstractItemModel):
 
     def _fillItemByDict(self, ch, v):
         logger.debug("_fillItemByDict: fill Item\n{}\nby Dict\n{}".format(ch.toDict(),v))
+
+        isize = {}
+        if 'extSize' in v:
+            isize = v['extSize']
+        elif 'size' in v.keys() and v['size'] != 0:
+            isize = {'value':v['size']}
+
         ch._itemData = [
-                v['name'], 
-                v['size'] if ('size' in v and v['size'] != 0) else None, 
+                v['name'], isize,
                 v['modified'] if 'modified' in v else None,
             ]
         ignored = v['ignored'] if 'ignored' in v else True
