@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 try:
-    from PySide import QtCore
-    from PySide import QtGui
-    from PySide import QtWidgets
+    from PySide2 import QtCore
+    from PySide2 import QtGui
+    from PySide2 import QtWidgets
 except:
     from PyQt5.QtCore import pyqtSlot as Slot
     from PyQt5 import QtCore
