@@ -3,7 +3,6 @@
 import os
 import json
 import shutil
-import requests
 
 try:
     from PySide2 import QtCore
@@ -142,7 +141,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #file_menu.addAction(exit_action)
 
         self.currentfid = None
-        self.syncapi = SyncthingAPI()
+        self.syncapi = SyncthingAPI(self)
         self.fs = FileSystem()
 
         self.readSettings()
@@ -154,90 +153,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.syncapi.api_url_base = self.leURL.text()
         self.syncapi.api_token = self.leKey.text()
         self.syncapi.startSession()
-        # try set date format
-        try:
-            self.df = QtCore.Qt.ISODateWithMs
-        except AttributeError:
-            self.df = QtCore.Qt.ISODate
-            logger.warning("Your Qt version is too old, date conversion could be incomplete")
 
-    def extendFileInfo(self, fid, l, path = '', psyncstate=iprop.SyncState.unknown):
-        try:
-            contents = self.syncapi.browseFolderPartial(fid, path, lev=1)
-        except requests.exceptions.RequestException as e:
-            logger.warning("extendFileInfo failed with lev=1 (fid={}, path={}), try lev=0 recursively".format(fid, path))
-            logger.debug("Exception {}".format(e))
-            # try to force read of the missed folder
-            name = str(e).split('could not find child')[1].split('\'')[1]
-            fldi = self.syncapi.getFileInfoExtended( fid,
-                    name if not path else path + '/' + name)
-            faileditem = {'name':name, 'modTime': fldi['global']['modified'],
-                    'size': fldi['global']['size'], 'type': fldi['global']['type']}
-            l.append(faileditem)
-            contents = self.syncapi.browseFolderPartial(fid, path, lev=0) + [faileditem]
-            for cind in range(len(contents)):
-                if iprop.Type[contents[cind]['type']] is iprop.Type.DIRECTORY:
-                    contents[cind]['children'] = self.syncapi.browseFolderPartial(fid,
-                                    contents[cind]['name'] if not path else path + '/' + contents[cind]['name'], lev=0)
-            QtWidgets.QMessageBox.warning(self,
-                    "Database read error",
-                    "Force to read path \'{}\', but some other folders may be missed due to database inconsistency".format(name if not path else path + '/' + name) + 
-                    "\n\n Additional info:\n" + 
-                    "availability: {}\n".format(fldi['availability']) + 
-                    "modifiedBy: {}".format(fldi['global']['modifiedBy'])
-                )
-
-        if path != '' and path[-1] != '/':
-            path = path + '/'
-        for v in l:
-            extd = self.syncapi.getFileInfoExtended( fid, path+v['name'])
-            if len(extd) == 0:  # there is no such file in database
-                continue
-            v['size'] = extd['global']['size']
-            v['modified'] = QtCore.QDateTime.fromString( extd['global']['modified'], self.df)
-            v['ignored'] = extd['local']['ignored']
-            v['invalid'] = extd['local']['invalid']
-
-            if iprop.Type[v['type']] is iprop.Type.DIRECTORY:
-                # TODO dict of dicts to avoid for
-                for c in contents:
-                    if c['name'] == v['name']:
-                        if 'children' in c:
-                            v['children'] = c['children']
-                        else:
-                            v['children'] = []
-
-            if iprop.Type[v['type']] is not iprop.Type.DIRECTORY:
-                pass
-            elif 'partial' in extd['local']:
-                v['partial'] = extd['local']['partial']
-            # seems the following case do not work at all as 'partial' exists forever
-            else: #do not believe 'ignore', check content
-                selcnt = 0
-                for v2 in v['children']:
-                    if self.syncapi.getFileInfoExtended( \
-                            fid, path+v['name']+'/' + v2['name'])['local']['ignored'] == False:
-                        selcnt += 1
-
-                if selcnt == 0:
-                    v['partial'] = False
-                elif selcnt == len(v['children']):
-                    v['ignored'] = False
-                    v['partial'] = False
-                else:
-                    v['ignored'] = False
-                    v['partial'] = True
-
-            if 'partial' in v and v['partial']:
-                v['syncstate'] = iprop.SyncState.partial
-            elif not v['ignored']:
-                v['syncstate'] = iprop.SyncState.syncing
-            elif psyncstate == iprop.SyncState.syncing:
-                # item ignored but the parent does not
-                # so it must be in global ignore patterns
-                v['syncstate'] = iprop.SyncState.globalignore
-            else:
-                v['syncstate'] = iprop.SyncState.ignored
 
     def btGetClicked(self):
         self.setCursor(QtCore.Qt.WaitCursor)
@@ -336,27 +252,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.writeSettings()
         event.accept()
 
-    def extendDirSizes(self, l):
-        logger.debug("extendDirSizes: {}".format(l))
-        size = 0
-        completed = True
-        for item in l:
-            if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
-                if 'children' in item.keys():
-                    item['extSize'] = self.extendDirSizes(item['children'])
-                    logger.debug("extend size={} for {}".format(item['extSize'], item))
-                else:
-                    completed = False
-            if 'size' in item.keys():
-                if 'extSize' in item.keys():
-                    size += item['extSize']['value']
-                    completed *= item['extSize']['completed'] if 'completed' in item['extSize'].keys() else True
-                else:
-                    size += item['size']
-            else:
-                completed = False
-        return {"value":size, "completed":completed}
-
     def folderSelected(self, index):
         if index < 0: #avoid signal from empty box
             return
@@ -368,11 +263,11 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Path is {}".format(self.foldsdict[fid]['path']))
         l = self.syncapi.browseFolderPartial(fid)
         logger.debug("Items: {}".format(l))
-        self.extendFileInfo(self.currentfid, l)
+        self.syncapi.extendFileInfo(self.currentfid, l)
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, self.foldsdict[fid]['path'])
         logger.debug("Extended and local items: {}".format(l))
-        self.extendDirSizes(l)
+        self.syncapi.extendDirSizes(l)
         logger.debug("Dir sizes updated")
         self.tm = TreeModel(l, self.tv)
         self.tv.setModel(self.tm)
@@ -385,14 +280,14 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info("Try update section {0}".format(self.tm.data(index, QtCore.Qt.DisplayRole)))
         l = self.tm.rowNamesList(index)
         logger.debug("Items: {}".format(l))
-        self.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)),
+        self.syncapi.extendFileInfo(self.currentfid, l, self.tm.fullItemName(self.tm.getItem(index)),
             self.tm.getItem(index).getSyncState())
         logger.debug("Extended items: {}".format(l))
         self.fs.extendByLocal(l, os.path.join(
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
             self.tm.getItem(index).getSyncState())
         logger.debug("Extended and local items: {}".format(l))
-        self.extendDirSizes(l)
+        self.syncapi.extendDirSizes(l)
         logger.debug("Dir sizes updated")
         self.tm.updateSubSection(index, l)
         self.tv.resizeColumnToContents(0)
@@ -430,8 +325,10 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug("Result of exclude:\n{0}".format(ignorelist))
 
         # hack to sync parent folder, seems could be skipped for versions above 1.5
-        # TODO: but it can be useful to keep dir partially sunced without selected items
-        if self.syncapi.api_version < self.syncapi.verStr2Num("1.6.0"):
+        # IMPORTANT: but it is useful to keep dirs partially synced and available for other devices
+        # and preserve database self-consistent.
+        # See https://github.com/syncthing/syncthing/issues/9443 for details.
+        if True: # self.syncapi.api_version < self.syncapi.verStr2Num("1.6.0"):
             for v in changedlist:
                 if v in partiallist:
                     ignorelist.append(v + '/**')

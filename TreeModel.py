@@ -36,7 +36,7 @@ class TreeItem:
         if s is None or s == {} or isinstance(s, str):
             return s
         outsize = s['value']
-        pref = '>' if 'completed' in s.keys() and not s['completed'] else ''
+        pref = '> ' if 'completed' in s.keys() and not s['completed'] else ''
         unit = self._units[0]
         for u in self._units:
             if outsize < 1024:
