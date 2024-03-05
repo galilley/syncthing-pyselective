@@ -3,6 +3,7 @@
 import os
 import json
 import shutil
+import requests
 
 try:
     from PySide2 import QtCore
@@ -161,7 +162,31 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.warning("Your Qt version is too old, date conversion could be incomplete")
 
     def extendFileInfo(self, fid, l, path = '', psyncstate=iprop.SyncState.unknown):
-        contents = self.syncapi.browseFolderPartial(fid, path, lev=1)
+        try:
+            contents = self.syncapi.browseFolderPartial(fid, path, lev=1)
+        except requests.exceptions.RequestException as e:
+            logger.warning("extendFileInfo failed with lev=1 (fid={}, path={}), try lev=0 recursively".format(fid, path))
+            logger.debug("Exception {}".format(e))
+            # try to force read of the missed folder
+            name = str(e).split('could not find child')[1].split('\'')[1]
+            fldi = self.syncapi.getFileInfoExtended( fid,
+                    name if not path else path + '/' + name)
+            faileditem = {'name':name, 'modTime': fldi['global']['modified'],
+                    'size': fldi['global']['size'], 'type': fldi['global']['type']}
+            l.append(faileditem)
+            contents = self.syncapi.browseFolderPartial(fid, path, lev=0) + [faileditem]
+            for cind in range(len(contents)):
+                if iprop.Type[contents[cind]['type']] is iprop.Type.DIRECTORY:
+                    contents[cind]['children'] = self.syncapi.browseFolderPartial(fid,
+                                    contents[cind]['name'] if not path else path + '/' + contents[cind]['name'], lev=0)
+            QtWidgets.QMessageBox.warning(self,
+                    "Database read error",
+                    "Force to read path \'{}\', but some other folders may be missed due to database inconsistency".format(name if not path else path + '/' + name) + 
+                    "\n\n Additional info:\n" + 
+                    "availability: {}\n".format(fldi['availability']) + 
+                    "modifiedBy: {}".format(fldi['global']['modifiedBy'])
+                )
+
         if path != '' and path[-1] != '/':
             path = path + '/'
         for v in l:
