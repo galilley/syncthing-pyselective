@@ -291,10 +291,12 @@ class SyncthingAPI:
                 v['syncstate'] = iprop.SyncState.ignored
 
     def extendDirSizes(self, l):
-        logger.debug("extendDirSizes: {}".format(l))
+        '''Return the size of the current folder'''
+        #logger.debug("extendDirSizes: {}".format(l))
         size = 0
         completed = True
         for item in l:
+            logger.debug("extend Item Size: {}".format(item))
             if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
                 if 'children' in item.keys():
                     item['extSize'] = self.extendDirSizes(item['children'])
@@ -302,9 +304,9 @@ class SyncthingAPI:
                 else:
                     completed = False
             if 'size' in item.keys():
-                if 'extSize' in item.keys():
+                if 'extSize' in item.keys():  # true for a folder
                     size += item['extSize']['value']
-                    completed *= item['extSize']['completed'] if 'completed' in item['extSize'].keys() else True
+                    completed &= item['extSize']['completed'] if 'completed' in item['extSize'].keys() else True
                 else:
                     size += item['size']
             else:

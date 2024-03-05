@@ -44,11 +44,11 @@ class TreeItem:
                 break
             outsize /= 1024
         if unit == self._units[0]:
-            return "{} {}".format(outsize, unit)
+            return "{}{} {}".format(pref, outsize, unit)
         elif outsize < 10:
-            return "{:.2f} {}".format(outsize, unit)
+            return "{}{:.2f} {}".format(pref, outsize, unit)
         elif outsize < 100:
-            return "{:.1f} {}".format(outsize, unit)
+            return "{}{:.1f} {}".format(pref, outsize, unit)
         return "{}{} {}".format(pref, round(outsize), unit)
 
     def appendChild(self, child):
