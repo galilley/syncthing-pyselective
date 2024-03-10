@@ -287,8 +287,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.foldsdict[self.currentfid]['path'], self.tm.fullItemName(self.tm.getItem(index))),
             self.tm.getItem(index).getSyncState())
         logger.debug("Extended and local items: {}".format(l))
-        self.syncapi.extendDirSizes(l)
+        d = self.syncapi.extendDirSizes(l)
         logger.debug("Dir sizes updated")
+        self.tm.updateBranchSize(index, d)
         self.tm.updateSubSection(index, l)
         self.tv.resizeColumnToContents(0)
         self.unsetCursor()

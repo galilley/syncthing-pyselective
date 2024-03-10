@@ -298,6 +298,7 @@ class SyncthingAPI:
         for item in l:
             logger.debug("extend Item Size: {}".format(item))
             if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
+                item['size'] = 0  # clear inode size
                 if 'children' in item.keys():
                     item['extSize'] = self.extendDirSizes(item['children'])
                     logger.debug("extend size={} for {}".format(item['extSize'], item))

@@ -184,6 +184,26 @@ class TreeItem:
             return True
 
         return False
+
+    def updateSize(self):
+        '''
+        Update size of the folder
+        '''
+        if not self.isfolder:
+            return
+        size = 0
+        completed = True
+        for ch in self._childItems:
+            s = ch._itemData[1]
+            if s is None or s == {}:
+                continue
+            if isinstance(s, str):
+                size += int(s)
+            elif isinstance(s, dict):
+                size += s['value']
+                completed &= s['completed'] if 'completed' in s.keys() else True
+        self._itemData[1] = {'value': size, 'completed': completed}
+
     
     def row(self):
         if self._parentItem is not None:
@@ -336,6 +356,19 @@ class TreeModel(QtCore.QAbstractItemModel):
             rv |= QtCore.Qt.ItemIsUserCheckable
 
         return rv
+
+    def updateBranchSize(self, index, d):
+        if not isinstance(index, QtCore.QModelIndex):
+            raise TypeError('Index\'s type is {0}, but must be QModelIndex'.format(str(type(index))))
+
+        item = self.getItem(index)
+        item.setData(1, d)
+        index = self.parent(index)
+
+        while index.isValid():
+            item = self.getItem(index)
+            item.updateSize()
+            index = self.parent(index)
 
     def headerData(self, section, orientation, role = QtCore.Qt.DisplayRole):
         if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
