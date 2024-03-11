@@ -298,6 +298,8 @@ class SyncthingAPI:
         for item in l:
             logger.debug("extend Item Size: {}".format(item))
             if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
+                if 'syncstate' in item.keys() and item['syncstate'] is iprop.SyncState.newlocal:  # let's skip local files for now
+                    continue
                 item['size'] = 0  # clear inode size
                 if 'children' in item.keys():
                     item['extSize'] = self.extendDirSizes(item['children'])

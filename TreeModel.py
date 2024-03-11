@@ -189,7 +189,7 @@ class TreeItem:
         '''
         Update size of the folder
         '''
-        if not self.isfolder:
+        if not self.isfolder or self.syncstatesystem is iprop.SyncState.newlocal:
             return
         size = 0
         completed = True
