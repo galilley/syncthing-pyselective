@@ -24,8 +24,8 @@ logger = logging.getLogger("PySel.MainWindow")
 
 # use helloword from https://evileg.com/ru/post/63/
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
-        QtWidgets.QMainWindow.__init__(self)
+    def __init__(self, ns):
+        super(MainWindow, self).__init__()
         self._qtver = \
                 (int(QtCore.qVersion().split('.')[0]) << 16) + \
                 (int(QtCore.qVersion().split('.')[1]) << 8) + \
@@ -73,6 +73,7 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.debug(index)
         self.tv = widget
         self.tm = TreeModel(parent=self.tv)
+        self.tm.showinvalid = ns.show_invalid
         self.tv.setModel(self.tm)
         self.tv.header().setSectionsMovable(True)
         if self._qtver >= 0x050B00: # >= 5.11

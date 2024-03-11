@@ -231,7 +231,8 @@ class TreeItem:
 
 class TreeModel(QtCore.QAbstractItemModel):
     def __init__(self, data = [], parent = None):
-        QtCore.QAbstractItemModel.__init__(self, parent)
+        super(TreeModel, self).__init__(parent)
+        self.showinvalid = False
         self._tv = parent
         self._rootItem = TreeItem(['Title', 'Size', 'Modified'])
         self._changedList = []
@@ -286,8 +287,8 @@ class TreeModel(QtCore.QAbstractItemModel):
                     pass
 
         if role == QtCore.Qt.BackgroundRole:
-            if item.isinvalid:
-                return QtGui.QBrush(QtCore.Qt.darkRed)
+            if item.isinvalid and self.showinvalid:
+                return QtGui.QBrush(QtCore.Qt.magenta)
 
         if role != QtCore.Qt.DisplayRole:
             return None

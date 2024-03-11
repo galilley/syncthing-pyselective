@@ -16,6 +16,7 @@ def createParser():
     parser.add_argument('-v', '--verbose', action = 'store_true', help = 'print more info about actions')
     parser.add_argument('-vv', '--debug', action = 'store_true', help = 'output all messages for debug purposes')
     parser.add_argument('-l', '--logfile', nargs='?', default = '', help = 'set log file name (default: pysel.log )')
+    parser.add_argument('--show-invalid', action = 'store_true', help = 'highlight invalid items')
     return parser
 
 if __name__ == "__main__":
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     logger = logging.getLogger("PySel")
     logger.info('PySelective started')
     app = QtWidgets.QApplication(sys.argv)
-    mw = MainWindow()
+    mw = MainWindow(namespace)
     mw.show()
     sys.exit(app.exec_())
 
