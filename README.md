@@ -40,7 +40,7 @@ It reads the global and local folder trees and fill tree view with checkboxes. Y
 5. Press "Submit changes" to apply new ignore template
 
 ## Requirements
-Python 3 and PyQt5 must be installed to run the program. 
+Python 3 and PyQt5 (or PySide2) must be installed to run the program from sources.
 
 ## About
 I've started this project for my personal use case but I believe it could be helpful both to other people right now and to the Syncthing project to introduce Next Gen Ignores feature in future. Please be free to contact me about your wishes and bug reports and do not judge strictly my code.
