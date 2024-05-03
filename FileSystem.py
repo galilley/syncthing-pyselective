@@ -40,7 +40,7 @@ class FileSystem:
         # looking for new local files, works only for the root directory
         # as further all new files has unknown syncstats
         for val in l:
-            if val['name'] in dl:
+            if val['name'] in dl and val['name'] in newfiles:  # TODO, correctly update removed files
                 newfiles.remove(val['name'])
 
         itemstoremove = []

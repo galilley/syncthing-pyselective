@@ -297,6 +297,9 @@ class SyncthingAPI:
         completed = True
         for item in l:
             logger.debug("extend Item Size: {}".format(item))
+            if not 'type' in item.keys():
+                completed = False
+                continue
             if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
                 if 'syncstate' in item.keys() and item['syncstate'] is iprop.SyncState.newlocal:  # let's skip local files for now
                     continue
