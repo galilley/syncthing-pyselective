@@ -206,6 +206,10 @@ class SyncthingAPI:
 
     def verStr2Num(self, s):
         l = s.replace("v", "").split(".")
+        # sometime the version could ends with rc1 or something else
+        # just avoid it
+        l[2] = re.search(r'\d+', l[2]).group()
+        # combine the magic number
         return (int(l[0])*100 + int(l[1]))*100 + int(l[2])
 
     def clearCache(self):
