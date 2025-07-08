@@ -92,12 +92,14 @@ class FileSystem:
                 fi = QtCore.QFileInfo(d.filePath(item['name']))
                 if iprop.Type[item['type']] is iprop.Type.DIRECTORY:
                     item['syncstate'] = iprop.SyncState.exists
+                # TODO, check by hash
                 elif item['size'] == fi.size() and \
-                        item['modified'].secsTo(fi.lastModified()) == 0:
+                        (item['modified'].secsTo(fi.lastModified()) == 0 or \
+                        item['modified'].secsTo(fi.lastModified()) - item['modified'].offsetFromUtc() == 0):  # local and UTC may be mixed...
                     item['syncstate'] = iprop.SyncState.exists
                 else:
                     item['syncstate'] = iprop.SyncState.conflict
-                    logger.debug("item {} considered as conflicted:\n\t{} != {} or {} != 0".format(item['name'], item['size'], fi.size(), item['modified'].secsTo(fi.lastModified())))
+                    logger.debug("item {} considered as conflicted:\n\t{} != {} or {} != {}".format(item['name'], item['size'], fi.size(), item['modified'], fi.lastModified()))
 
             # fill list of locally removed files
             elif 'syncstate' in item and \

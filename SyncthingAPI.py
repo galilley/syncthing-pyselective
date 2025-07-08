@@ -52,7 +52,7 @@ class SyncthingAPI:
 
     @api_url_base.setter
     def api_url_base(self, url):
-        p = '(?P<scheme>http[^:]?)?(?:\://)?(?P<host>[^:/ ]+).?(?P<port>[0-9]*).*'
+        p = r'(?P<scheme>http[^:]?)?(?:\://)?(?P<host>[^:/ ]+).?(?P<port>[0-9]*).*'
         m = re.search(p, url)
         self.api_hostname = m.group('host')
         s = m.group('scheme')
